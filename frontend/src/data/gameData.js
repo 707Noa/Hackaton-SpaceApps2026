@@ -1,199 +1,348 @@
-// MARS OUTPOST: Game Data & NASA Knowledge Base
-// Tailored for young explorers (7-12 years old) in React
+// MARS OUTPOST: Master Game Data & NASA Scientific Knowledge Base
+// Conforms to NASA International Space Apps Challenge 2026 specifications
+// Designed intuitively for Junior Astronauts aged 7-12 years old
 
-export const INITIAL_RESOURCES = {
-  energy: 85,
-  water: 75,
-  oxygen: 90,
-  food: 65,
+export const MISSIONS_LIST = [
+  {
+    id: 'm_plant',
+    title: 'Primer Cultivo Marciano',
+    module: 'agrodome',
+    moduleLabel: 'Invernadero Agrodome',
+    goal: 'Camina al invernadero y siembra lechuga espacial Veggie.',
+    tip: 'Las plantas nos dan comida y oxígeno, pero necesitan agua y luz LED.',
+    rewardScience: 15,
+    icon: '🌱'
+  },
+  {
+    id: 'm_clean',
+    title: 'Paneles Relucientes',
+    module: 'power_core',
+    moduleLabel: 'Paneles Solares (Power Core)',
+    goal: 'Envía al rover a limpiar el polvo rojo de los paneles solares.',
+    tip: 'Si el polvo tapa los paneles, la base se queda sin electricidad.',
+    rewardScience: 15,
+    icon: '🚜'
+  },
+  {
+    id: 'm_moxie',
+    title: 'Fábrica de Oxígeno MOXIE',
+    module: 'life_support',
+    moduleLabel: 'Laboratorio (Life Support)',
+    goal: 'Enciende el reactor MOXIE para fabricar oxígeno respirable.',
+    tip: 'MOXIE convierte el aire irrespirable de Marte (CO2) en oxígeno puro.',
+    rewardScience: 15,
+    icon: '🫁'
+  },
+  {
+    id: 'm_recycle',
+    title: 'Cuidando Cada Gota',
+    module: 'life_support',
+    moduleLabel: 'Hábitat (Life Support)',
+    goal: 'Usa el reciclador ECLSS para purificar y recuperar agua limpia.',
+    tip: 'En el espacio la NASA recicla hasta el 98% del agua para no desperdiciar nada.',
+    rewardScience: 15,
+    icon: '💧'
+  },
+  {
+    id: 'm_bunker',
+    title: 'Escudo Antirradiación',
+    module: 'shield_system',
+    moduleLabel: 'Búnker de Regolito',
+    goal: 'Activa el refugio o refuerza el escudo con tierra marciana.',
+    tip: 'La tierra roja (regolito) bloquea la radiación peligrosa de las tormentas solares.',
+    rewardScience: 15,
+    icon: '🛡️'
+  },
+  {
+    id: 'm_eva',
+    title: 'Explorador del Cráter',
+    module: 'shield_system',
+    moduleLabel: 'Cráter Jezero (Shield System)',
+    goal: 'Planifica una salida EVA con trajes espaciales para recoger muestras.',
+    tip: 'En el cráter Jezero hubo un antiguo lago. Buscamos pistas de agua pasada.',
+    rewardScience: 20,
+    icon: '🥾'
+  },
+  {
+    id: 'm_comms',
+    title: 'Mensaje a Houston',
+    module: 'mission_control',
+    moduleLabel: 'Antena DSN (Control de Misión)',
+    goal: 'Envía un reporte por radio a la Tierra desde Control de Misión.',
+    tip: 'Las señales tardan 14 minutos en viajar entre Marte y la Tierra.',
+    rewardScience: 15,
+    icon: '📡'
+  }
+];
+
+export const INITIAL_GAME_STATE = {
+  cadetName: 'Cadete Explorador',
+  sol: 1,
+  totalSols: 7,
+  isNight: false,
+  roverTask: null,
+  actionsRemaining: 2,
+  maxActionsPerSol: 2,
+  resources: {
+    energy: 85,
+    water: 80,
+    oxygen: 90,
+    co2: 12,
+    food: 70
+  },
+  crew: {
+    count: 4,
+    health: 100,
+    status: 'Muy bien'
+  },
   shield: 90,
-  dust: 15
+  dust: 15,
+  bunkerActive: false,
+  crops: {
+    planted: false,
+    cropType: 'veggie_lettuce',
+    stage: 0,
+    solsToHarvest: 0
+  },
+  completedMissions: [],
+  scienceProgress: 10,
+  earthComms: [
+    {
+      sol: 1,
+      sender: 'Control en Houston',
+      subject: '¡Bienvenidos a Marte!',
+      text: '¡Hola Comandante! Tu base en el cráter Jezero está lista. Muévete con WASD o las flechas, cuida tus recursos y cumple las misiones.',
+      latencyMin: 14.2
+    }
+  ],
+  log: ['Sol 01: Puesto Horizonte Rojo activado en el Cráter Jezero.'],
+  gameOver: false,
+  victory: false
 };
 
 export const NASA_SOURCES = {
-  "meda": {
-    title: "NASA Perseverance: Sensor Meteorológico MEDA",
-    mission: "Mars 2020 Perseverance Rover",
-    location: "Cráter Jezero, Marte",
-    badge: "DATO REAL NASA",
-    text: "El rover Perseverance tiene una estación del clima llamada MEDA en el cráter Jezero. En 2021, MEDA descubrió que el polvo marciano es tan fino como el talco. Los vientos levantan remolinos gigantes que cubren los paneles solares, bloqueando los rayos del Sol y reduciendo la electricidad que pueden producir."
+  meda: {
+    id: 'meda',
+    title: 'NASA Perseverance: Sensor del Clima MEDA',
+    mission: 'Rover Perseverance (Mars 2020)',
+    instrument: 'MEDA (Estación Meteorológica de Marte)',
+    location: 'Cráter Jezero, Marte',
+    badge: 'DATO REAL NASA',
+    text: 'El rover Perseverance lleva una estación del clima llamada MEDA. Descubrió que en Marte se forman remolinos de polvo muy fino que tapan los paneles solares y hacen que produzcan menos electricidad.',
+    nasaUrl: 'https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/PERSEVERANCE/meda.html'
   },
-  "moxie": {
-    title: "NASA MOXIE: La Máquina que Fabrica Oxígeno",
-    mission: "Mars 2020 Perseverance Rover",
-    location: "Cráter Jezero, Marte",
-    badge: "TECNOLOGÍA REAL NASA",
-    text: "El aire de Marte tiene 95% de dióxido de carbono (CO2) y no se puede respirar. La NASA envió un instrumento del tamaño de una tostadora llamado MOXIE. Calienta el aire marciano a 800 °C para separar los átomos y producir oxígeno puro. ¡MOXIE demostró que futuros astronautas podrán fabricar su propio aire en Marte!"
+  moxie: {
+    id: 'moxie',
+    title: 'NASA MOXIE: Máquina que Fabrica Oxígeno',
+    mission: 'Rover Perseverance (Mars 2020)',
+    instrument: 'MOXIE',
+    location: 'Cráter Jezero, Marte',
+    badge: 'TECNOLOGÍA REAL NASA',
+    text: 'El aire de Marte no se puede respirar porque tiene 95% de dióxido de carbono (CO2). La NASA probó un aparato llamado MOXIE del tamaño de una tostadora que calienta ese aire a 800 °C para sacar oxígeno puro.',
+    nasaUrl: 'https://www.nasa.gov/missions/mars-2020-perseverance/perseverance-rover/nasas-oxygen-generating-experiment-moxie-completes-mars-mission/'
   },
-  "eclss": {
-    title: "NASA ECLSS: El Gran Reciclador de Agua",
-    mission: "Estación Espacial Internacional (ISS)",
-    location: "Órbita terrestre baja",
-    badge: "SISTEMA OPERATIVO NASA",
-    text: "Llevar agua al espacio es muy pesado y costoso. En la Estación Espacial, el sistema ECLSS de la NASA purifica y recicla hasta el 98% de todos los líquidos, incluyendo el sudor de los astronautas y la humedad del aire, convirtiéndolos en agua cristalina más pura que la de cualquier botella."
+  eclss: {
+    id: 'eclss',
+    title: 'NASA ECLSS: El Gran Reciclador de Agua',
+    mission: 'Estación Espacial Internacional (ISS)',
+    instrument: 'ECLSS',
+    location: 'Órbita de la Tierra',
+    badge: 'SISTEMA REAL NASA',
+    text: 'Llevar agua en cohete pesa muchísimo. En la Estación Espacial, el sistema ECLSS limpia y recicla hasta el 98% del agua, incluso el sudor y la humedad del aire, dejándola más limpia que el agua de botella.',
+    nasaUrl: 'https://www.nasa.gov/international-space-station/space-station-research-and-technology/'
   },
-  "veggie": {
-    title: "NASA Veggie y OSDR: Cultivos Espaciales",
-    mission: "NASA Biological & Physical Sciences",
-    location: "Estación Espacial Internacional",
-    badge: "BIOLOGÍA ESPACIAL NASA",
-    text: "En el espacio no hay tierra fértil. La NASA usa el experimento Veggie: bandejas especiales con almohadillas de arcilla, luces LED rojas y azules, y agua con nutrientes. Los astronautas ya cosecharon lechugas rojas, rábanos y tomates miniatura en el espacio."
+  veggie: {
+    id: 'veggie',
+    title: 'NASA Veggie: Huertos en el Espacio',
+    mission: 'Estación Espacial Internacional (ISS)',
+    instrument: 'Veggie y OSDR',
+    location: 'Laboratorio Espacial',
+    badge: 'BIOLOGÍA ESPACIAL NASA',
+    text: 'Para cultivar sin tierra fértil, la NASA usa almohadillas especiales con nutrientes y luces LED rojas y azules. Así los astronautas han cultivado y comido lechugas, rábanos y tomatitos en el espacio.',
+    nasaUrl: 'https://osdr.nasa.gov/'
   },
-  "donki": {
-    title: "NASA DONKI: Base de Datos de Clima Espacial",
-    mission: "NASA Goddard Space Flight Center",
-    location: "Heliosfera Solar",
-    badge: "CLIMA ESPACIAL NASA",
-    text: "Marte no tiene un campo magnético como la Tierra para frenar la radiación. Cuando el Sol lanza una llamarada de radiación (CME), los satélites de la NASA en DONKI mandan una alerta. Los astronautas deben refugiarse bajo metros de polvo y rocas marcianas (regolito) para estar a salvo."
+  donki: {
+    id: 'donki',
+    title: 'NASA DONKI: Alertas de Tormentas Solares',
+    mission: 'Centro Goddard de la NASA',
+    instrument: 'Sistema DONKI de Clima Espacial',
+    location: 'Sistema Solar',
+    badge: 'CLIMA ESPACIAL NASA',
+    text: 'Marte no tiene un escudo magnético invisible como la Tierra. Cuando el Sol lanza rayos de radiación fuerte, DONKI avisa a tiempo para que los astronautas se escondan bajo rocas y arena marciana (regolito).',
+    nasaUrl: 'https://ccmc.gsfc.nasa.gov/DONKI/'
+  },
+  curiosity_rad: {
+    id: 'curiosity_rad',
+    title: 'NASA Curiosity: Medidor de Radiación RAD',
+    mission: 'Rover Curiosity',
+    instrument: 'Detector RAD',
+    location: 'Marte',
+    badge: 'DATO CIENTÍFICO REAL',
+    text: 'El robot Curiosity midió cuánta radiación espacial cae cada día en la superficie de Marte. Gracias a eso sabemos que cubrir las casas con tierra marciana protege muy bien a los astronautas.',
+    nasaUrl: 'https://science.nasa.gov/mission/msl-curiosity/science-instruments/'
+  },
+  dsn: {
+    id: 'dsn',
+    title: 'NASA DSN: Antenas Gigantes del Espacio',
+    mission: 'Red del Espacio Profundo (JPL)',
+    instrument: 'Antenas de 70 metros DSN',
+    location: 'EE.UU., España y Australia',
+    badge: 'COMUNICACIÓN NASA',
+    text: 'Marte está a millones de kilómetros. Aunque las señales viajan a la velocidad de la luz, tardan entre 6 y 22 minutos en llegar. ¡Por eso un comandante espacial debe pensar rápido y decidir sin esperar a la Tierra!',
+    nasaUrl: 'https://www.nasa.gov/directorates/somd/space-communications-navigation-program/'
   }
 };
 
 export const SOL_EVENTS = [
   {
     sol: 1,
-    title: "¡Bienvenido a Jezero! Llegada del Puesto",
-    subtitle: "Sol 01: Verificación de Sistemas",
-    description: "Has alunizado en el antiguo delta del río de Jezero. Los 4 astronautas están a salvo y todos los módulos están en línea. ¿Qué ordenas como tu primera prioridad de comandante?",
-    nasaSourceKey: "meda",
+    title: 'Sol 01: ¡Aterrizaje en el Cráter Jezero!',
+    subtitle: 'Primer día en Marte',
+    description: '¡Llegaste sano y salvo a Marte con tus 4 astronautas! Antes de explorar, decide qué quieres priorizar hoy.',
+    nasaSourceKey: 'meda',
     choices: [
       {
-        id: "c1_a",
-        text: "⚡ Cargar Baterías al Máximo",
-        detail: "Asegura calefacción para la noche marciana gélida.",
+        id: 'c1_a',
+        text: '⚡ Cargar las Baterías de la Base',
+        detail: 'Guarda mucha electricidad para mantener calientes las habitaciones en la noche.',
         effects: { energy: 10, food: -5 }
       },
       {
-        id: "c1_b",
-        text: "🌱 Preparar el Invernadero Agrodome",
-        detail: "Alista las bandejas hidropónicas para sembrar comida pronto.",
+        id: 'c1_b',
+        text: '🌱 Encender el Invernadero Agrodome',
+        detail: 'Prepara las bandejas de agua y luz para empezar a cultivar comida fresca.',
         effects: { water: -8, energy: -5, food: 8 }
       }
     ]
   },
   {
     sol: 2,
-    title: "¡Tormenta de Polvo Marciano!",
-    subtitle: "Sol 02: Alerta de Sensores MEDA",
-    description: "El instrumento MEDA detectó un remolino de arena. El polvo fino cubrió un 40% de los paneles solares y la energía solar empieza a caer. ¿Cómo respondes?",
-    nasaSourceKey: "meda",
+    title: 'Sol 02: ¡Remolino de Polvo Rojo!',
+    subtitle: 'Alerta del sensor del clima MEDA',
+    description: 'Un viento fuerte levantó polvo fino y cubrió parte de tus paneles solares. ¡Si no los limpias, entrará menos energía!',
+    nasaSourceKey: 'meda',
     choices: [
       {
-        id: "c2_a",
-        text: "🚜 Enviar al Rover a Limpiar los Paneles",
-        detail: "Gasta energía de baterías hoy, pero deja los paneles relucientes.",
-        effects: { energy: -12, dust: -40 },
-        actionTrigger: "clean_panels"
+        id: 'c2_a',
+        text: '🚜 Mandar al Rover a Limpiar los Paneles',
+        detail: 'Usa un poco de batería ahora, pero deja los paneles solares al 100%.',
+        effects: { energy: -10, dust: -40 },
+        actionTrigger: 'clean_panels'
       },
       {
-        id: "c2_b",
-        text: "💤 Apagar Luces y Entrar en Ahorro",
-        detail: "Ahorra energía hoy, pero los paneles seguirán sucios.",
-        effects: { energy: 2, dust: 10, oxygen: -5 }
+        id: 'c2_b',
+        text: '💤 Ahorrar Luz y Esperar a que Pase el Viento',
+        detail: 'No gastas batería hoy, pero los paneles seguirán con polvo.',
+        effects: { energy: 4, dust: 10, oxygen: -4 }
       }
     ]
   },
   {
     sol: 3,
-    title: "La Huerta Espacial Tiene Sed",
-    subtitle: "Sol 03: Experimento Veggie",
-    description: "Los brotes de lechuga espacial están creciendo rápido, pero consumen más agua y luz de la calculada. ¿Deseas darles riego completo o racionar?",
-    nasaSourceKey: "veggie",
+    title: 'Sol 03: Las Lechugas Tienen Sed',
+    subtitle: 'Experimento de cultivos Veggie',
+    description: 'Tus plantitas están creciendo súper rápido en el invernadero, pero hoy piden un poco más de agua y luz LED.',
+    nasaSourceKey: 'veggie',
     choices: [
       {
-        id: "c3_a",
-        text: "💧 Riego Completo con Luces LED",
-        detail: "Gasta agua y energía, pero acelera la cosecha y da oxígeno extra.",
-        effects: { water: -14, energy: -8, food: 22, oxygen: 8 }
+        id: 'c3_a',
+        text: '💧 Darles Agua y Luz Completa',
+        detail: 'Gasta 10 de agua y 8 de energía para lograr una gran cosecha pronto.',
+        effects: { water: -10, energy: -8, food: 15 }
       },
       {
-        id: "c3_b",
-        text: "🌱 Riego Mínimo de Ahorro",
-        detail: "Guarda agua para la tripulación, pero el cultivo tardará más.",
-        effects: { water: -4, food: 5 }
+        id: 'c3_b',
+        text: '🌾 Cuidar las Reservas de Agua',
+        detail: 'Ahorras agua para la tripulación, aunque las plantas crecerán más lento.',
+        effects: { water: 3, energy: 2, food: -5 }
       }
     ]
   },
   {
     sol: 4,
-    title: "Filtro Atascado en el Reciclador ECLSS",
-    subtitle: "Sol 04: Soporte Vital en Alerta",
-    description: "Las sales del agua marciana taparon un filtro del reciclador. El reciclaje bajó al 40% y el CO2 en cabina empieza a subir. ¿Qué ordenas?",
-    nasaSourceKey: "eclss",
+    title: 'Sol 04: ¡Alerta de Tormenta Solar!',
+    subtitle: 'Aviso urgente de NASA DONKI',
+    description: 'El Sol lanzó una nube de radiación hacia Marte. ¡Es peligroso estar afuera o sin protección!',
+    nasaSourceKey: 'donki',
     choices: [
       {
-        id: "c4_a",
-        text: "🔧 Purgar Filtros y Reemplazar Cartucho",
-        detail: "Usa energía de mantenimiento, pero recupera el 95% del agua y aire limpio.",
-        effects: { energy: -14, water: 15, oxygen: 10 }
+        id: 'c4_a',
+        text: '🛡️ Refugiar a Todos en el Búnker',
+        detail: 'Sella el refugio bajo tierra marciana. Gasta 8 de energía pero todos están a salvo.',
+        effects: { energy: -8, shield: 15 },
+        actionTrigger: 'activate_bunker'
       },
       {
-        id: "c4_b",
-        text: "🚰 Usar Tanque de Agua de Emergencia",
-        detail: "No gasta energía, pero gasta reservas no renovables.",
-        effects: { water: -16, oxygen: -6 }
+        id: 'c4_b',
+        text: '📡 Seguir Trabajando con Cuidado',
+        detail: 'Ahorras electricidad, pero la radiación debilita el escudo de la base.',
+        effects: { energy: 5, shield: -25 }
       }
     ]
   },
   {
     sol: 5,
-    title: "¡Muestras del Delta y Fábrica MOXIE!",
-    subtitle: "Sol 05: Ciencia en el Cráter",
-    description: "El rover localizó rocas arcillosas en el delta que podrían guardar secretos del agua antigua de Marte. Para explorar, la tripulación necesita recargar mochilas de oxígeno.",
-    nasaSourceKey: "moxie",
+    title: 'Sol 05: El Aire se Pone Pesado',
+    subtitle: 'Aviso de Calidad de Aire (MOXIE)',
+    description: 'Al respirar dentro de la base cerrada sube el CO2 (aire viciado). ¡Hay que limpiar el aire y producir oxígeno fresco!',
+    nasaSourceKey: 'moxie',
     choices: [
       {
-        id: "c5_a",
-        text: "🫁 Encender MOXIE a Toda Potencia",
-        detail: "Convierte CO2 en abundancia de oxígeno puro usando electricidad.",
-        effects: { energy: -16, oxygen: 24, shield: -4 }
+        id: 'c5_a',
+        text: '🫁 Prender la Máquina MOXIE',
+        detail: 'Usa 12 de energía para crear mucho oxígeno puro (+18) desde la atmósfera.',
+        effects: { energy: -12, oxygen: 18, co2: -8 }
       },
       {
-        id: "c5_b",
-        text: "📡 Enviar Solo al Dron Autónomo",
-        detail: "Los astronautas se quedan adentro; ahorra energía pero recolecta menos datos.",
-        effects: { energy: -5, shield: 6 }
+        id: 'c5_b',
+        text: '🔧 Cambiar los Filtros de Aire',
+        detail: 'Limpia rápidamente el CO2 sin gastar electricidad.',
+        effects: { oxygen: 6, co2: -12 }
       }
     ]
   },
   {
     sol: 6,
-    title: "¡ALERTA SOLAR! Llamarada Solar DONKI",
-    subtitle: "Sol 06: Tormenta de Radiación",
-    description: "La NASA emitió alerta roja: una tormenta solar viaja directo a Marte. La base no tiene atmósfera gruesa para frenarla. ¡Debes actuar ya!",
-    nasaSourceKey: "donki",
+    title: 'Sol 06: ¡Descubrimiento en el Delta!',
+    subtitle: 'Exploración Geológica en Jezero',
+    description: 'Cerca de la base hay rocas de un antiguo río seco. ¡Podríamos encontrar pistas de agua antigua en Marte!',
+    nasaSourceKey: 'curiosity_rad',
     choices: [
       {
-        id: "c6_a",
-        text: "🛡️ ¡Todos al Búnker Subterráneo de Regolito!",
-        detail: "Mete a los 4 tripulantes bajo tierra. Seguridad total, pero pausa experimentos.",
-        effects: { energy: -10, shield: 25 }
+        id: 'c6_a',
+        text: '🥾 Salir con Trajes Espaciales a Explorar',
+        detail: 'Usa aire y agua de los trajes, pero ganamos muchos puntos de ciencia (+25).',
+        effects: { oxygen: -6, water: -6, energy: -5 },
+        scienceBoost: 25
       },
       {
-        id: "c6_b",
-        text: "⚡ Reforzar Escudos Electromagnéticos",
-        detail: "Deja a los astronautas en cabina, consumiendo mucha energía.",
-        effects: { energy: -20, shield: -10 }
+        id: 'c6_b',
+        text: '🔬 Mandar Solo al Rover con su Cámara',
+        detail: 'Es 100% seguro para los astronautas y gana +12 puntos de ciencia.',
+        effects: { energy: -6 },
+        scienceBoost: 12
       }
     ]
   },
   {
     sol: 7,
-    title: "Transmisión Final: Misión Cumplida",
-    subtitle: "Sol 07: Conexión con Houston",
-    description: "¡Último Sol de la misión! La tripulación ha sobrevivido en Jezero. Houston espera el informe final con los datos de MEDA, MOXIE y los cultivos de Marte.",
-    nasaSourceKey: "meda",
+    title: 'Sol 07: ¡Último Día de Misión!',
+    subtitle: 'Conexión Final con la Tierra (DSN)',
+    description: '¡Llegaste al Sol 7! La nave de relevo viene en camino. Decide cómo enviar todo lo que aprendiste a la Tierra.',
+    nasaSourceKey: 'dsn',
     choices: [
       {
-        id: "c7_a",
-        text: "📡 Transmisión de Alta Potencia a la Tierra",
-        detail: "Envía todos los videos y ciencia a Houston gastando la energía final.",
-        effects: { energy: -14 }
+        id: 'c7_a',
+        text: '🛰️ Enviar Datos por la Antena Gigante',
+        detail: 'Usa la energía restante para mandar todas las fotos y muestras a Houston.',
+        effects: { energy: -15 },
+        scienceBoost: 20
       },
       {
-        id: "c7_b",
-        text: "💾 Guardar en Memoria Local y Transmisión Económica",
-        detail: "Asegura que el puesto quede cargado para la próxima tripulación.",
-        effects: { energy: -4 }
+        id: 'c7_b',
+        text: '📦 Guardar Todo en la Base para el Relevo',
+        detail: 'Ahorra energía y agua para los astronautas que llegarán mañana.',
+        effects: { energy: 5, water: 5 }
       }
     ]
   }

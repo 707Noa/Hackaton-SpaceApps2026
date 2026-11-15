@@ -1,5 +1,5 @@
-# GUIA DE DESARROLLO Y ARQUITECTURA TECNICA (REACT + VITE)
-## MARS OUTPOST: HORIZONTE ROJO · DEMO 2D PIXEL ART EN REACT
+# GUIA DE DESARROLLO Y ARQUITECTURA TECNICA (REACT + BABYLON.JS)
+## MARS OUTPOST: HORIZONTE ROJO · ARQUITECTURA MODULAR EN REACT CON MOTOR 3D BABYLON.JS
 ### NASA International Space Apps Challenge 2026 · Build a Junior Astronaut Mission Trainer
 
 ---
@@ -7,161 +7,172 @@
 ## 1. Alcance Tecnico y Arquitectura del Entregable
 
 ### 1.1 Naturaleza del Software
-El proyecto esta construido al 100% en **React 18 + Vite**, cumpliendo con la especificacion tecnica de una **Demo / Prototipo Funcional de Demostracion (Proof of Concept)**. 
+El proyecto esta construido al 100% en React 18 con Vite como empaquetador e integra el motor grafico profesional Babylon.js para la simulacion visual interactiva en tiempo real del puesto avanzado en el Crater Jezero de Marte.
 
-Combina la reactividad de componentes modulares de React con un motor de renderizado procedural en **HTML5 Canvas 2D (Pixel Art)** y sintesis de sonido en tiempo real mediante **Web Audio API**.
+Cumple rigurosamente con la especificacion de una Demo / Prototipo Funcional de Demostracion (Proof of Concept) para la hackathon:
+* **Ejecucion en el Cliente (Client-Side SPA):** No requiere servidores backend ni bases de datos remotas.
+* **Arquitectura Modular por Dominios:** El codigo esta dividido en cinco modulos funcionales independientes (Agrodome, Power Core, Life Support, Shield System y Mission Control) para permitir que los desarrolladores trabajen en paralelo sin colisiones de Git.
+* **Motor 3D Profesional Babylon.js:** Gestiona la camara orbital adaptada para ninos de 7 a 12 anos, el relieve del crater Jezero, la iluminacion solar de Marte, el ciclo de dia y noche, las tormentas de polvo y las animaciones autonomas del rover.
+* **Compilacion Rapida con Vite:** Tiempo de construccion de aproximadamente 5 segundos (`npm run build`).
 
-### 1.2 Principios de Diseno
-* **Ejecucion en el Cliente (Client-Side SPA):** No requiere servidores backend ni bases de datos remotas que puedan fallar en la evaluacion.
-* **Componentizacion Estricta:** La interfaz se divide en componentes independientes para que los tres desarrolladores trabajen en paralelo.
-* **Compilacion Rapida con Vite:** Tiempo de construccion inferior a 3 segundos (`npm run build`).
-
-### 1.3 Estructura de Directorios del Frontend
-Toda la aplicacion de React se encuentra en `Hackaton-SpaceApps2026/frontend/`:
+### 1.2 Estructura de Directorios del Frontend
+Toda la aplicacion reside en `Hackaton-SpaceApps2026/frontend/`:
 
 ```text
 Hackaton-SpaceApps2026/frontend/
-├── package.json
-├── vite.config.js
-├── index.html
+├── package.json               # Dependencias (React, Babylon.js, Lucide, Vite)
+├── vite.config.js             # Configuracion de empaquetado optimizado
+├── index.html                 # Punto de entrada con motor Babylon.js via CDN
 └── src/
-    ├── main.jsx                   # Punto de entrada de React
-    ├── App.jsx                    # Orquestador principal de estado y modales
-    ├── index.css                  # Estilos globales y clases pixel-art
+    ├── main.jsx               # Render inicial de React
+    ├── App.jsx                # Orquestador principal de estado y vistas de modulo
+    ├── index.css              # Estilos visuales retro y clases de interfaz adaptativa
     ├── data/
-    │   └── gameData.js            # Estado inicial, eventos de 7 Soles y fuentes NASA
+    │   └── gameData.js        # Estado inicial canonico, eventos de 7 Soles y fuentes NASA
     ├── services/
-    │   ├── audioService.js        # Sintetizador procedural Web Audio de 8 bits
-    │   ├── pixelArtRenderer.js    # Motor de dibujo de sprites (cúpulas, rover, astronautas)
-    │   └── gameEngine.js          # Calculos matematicos de recursos y transiciones
-    └── components/
-        ├── TelemetryHUD.jsx       # Consola superior de los 6 recursos y Sol
-        ├── PixelCanvas.jsx        # Lienzo Canvas animado a 60 FPS e interactivo
-        ├── ActionControls.jsx     # Botones arcade de acciones del Comandante
-        ├── StartModal.jsx         # Pantalla de bienvenida y registro de Cadete
-        ├── EventModal.jsx         # Modal de incidentes diarios con 2 opciones
-        ├── NasaScienceModal.jsx   # Ficha emergente "Origen del Dato Cientifico NASA"
-        └── CertificateModal.jsx   # Diploma oficial de Cadete Junior para imprimir
+    │   ├── audioService.js    # Sintetizador procedural Web Audio de 8 bits
+    │   ├── babylonSceneManager.js # Motor 3D Babylon.js (terreno, modulos, rover, particulas)
+    │   ├── pixelTextureFactory.js # Generador de texturas pixel art 16-bit procedurales
+    │   └── gameEngine.js      # Calculos matematicos de recursos y trade-offs
+    ├── components/
+    │   ├── TelemetryHUD.jsx   # Barra superior con estado de Sol, misiones y avance
+    │   ├── BabylonViewport.jsx# Visor 3D interactivo con movimiento WASD y proximidad
+    │   ├── ResourceDistributionPanel.jsx # Distribucion visual de los 6 recursos
+    │   ├── StartScene.jsx     # Escenario 1: Pantalla completa de bienvenida
+    │   ├── MissionsModal.jsx  # Modal de objetivos y misiones NASA
+    │   ├── EventModal.jsx     # Modal de incidentes diarios con 2 opciones
+    │   ├── NasaScienceModal.jsx # Ficha emergente "Origen del Dato Cientifico NASA"
+    │   └── CertificateModal.jsx # Diploma oficial de Cadete Junior para imprimir
+    └── modules/
+        ├── agrodome/
+        │   └── AgrodomeView.jsx      # Modulo 1: Invernadero y cultivos espaciales
+        ├── power-core/
+        │   └── PowerCoreView.jsx     # Modulo 2: Energia solar, baterias y polvo MEDA
+        ├── life-support/
+        │   └── LifeSupportView.jsx   # Modulo 3: Soporte vital ECLSS y MOXIE
+        ├── shield-system/
+        │   └── ShieldSystemView.jsx  # Modulo 4: Bunker de regolito y alertas DONKI
+        └── mission-control/
+            └── MissionControlView.jsx# Modulo 5: Cronograma de 7 Soles y enlace DSN
 ```
 
 ---
 
-## 2. Asignacion de Trabajo Independiente (3 Desarrolladores en React)
-
-Para que los tres programadores avancen en paralelo sin sobreescribir codigo ajeno, se asignan modulos y componentes especificos:
+## 2. Asignacion de Trabajo Independiente (3 Desarrolladores en React + Babylon.js)
 
 ```text
-[SQUAD DE SOFTWARE REACT - 3 INTEGRANTES]
+[SQUAD DE SOFTWARE REACT + BABYLON.JS - 3 INTEGRANTES]
 │
-├── Desarrollador 1: Componentes Visuales, Canvas Pixel Art y HUD
-├── Desarrollador 2: Motor de Calculo, Estado Global y Reglas de Recursos
-└── Desarrollador 3: Audio Chiptune, Modales de Ciencia NASA y Certificado
+├── Desarrollador 1: Escena 3D Babylon.js y Modulo Power Core
+├── Desarrollador 2: Modulo Agrodome, Modulo Life Support y Motor de Simulacion
+└── Desarrollador 3: Modulo Shield System, Modulo Mission Control, Audio y Modales
 ```
 
 ---
 
-### 2.1 DESARROLLADOR 1: Componentes Visuales, Canvas Pixel Art y HUD
+### 2.1 DESARROLLADOR 1: Escena 3D Babylon.js y Modulo Power Core
 
 #### A. Archivos y Componentes Asignados:
-* `src/services/pixelArtRenderer.js`
-* `src/components/PixelCanvas.jsx`
-* `src/components/TelemetryHUD.jsx`
-* `src/components/ActionControls.jsx`
+* `src/services/babylonSceneManager.js`
+* `src/services/pixelTextureFactory.js`
+* `src/components/BabylonViewport.jsx`
+* `src/modules/power-core/PowerCoreView.jsx`
 
 #### B. Responsabilidades Concretas:
-1. **Lienzo Interactivo `PixelCanvas.jsx`:**
-   * Controla el bucle `requestAnimationFrame` que renderiza a 60 FPS la base en el crater Jezero.
-   * Administra la animacion del rover cuando sale a limpiar paneles y el patrullaje de los cuatro astronautas.
-   * Detecta clics sobre los modulos (Agrodome, paneles solares, MOXIE) o sobre los astronautas para desplegar mensajes en pantalla.
-2. **Consola `TelemetryHUD.jsx`:**
-   * Muestra las barras de porcentaje de los seis recursos (Energia, Agua, Oxigeno, Comida, Escudo, Polvo).
-   * Gestiona el contador de Soles (Sol 01 a 07) y el boton de silenciamiento de audio.
-3. **Botonera `ActionControls.jsx`:**
-   * Disena los botones de accion del Comandante (Cultivar, Limpiar Polvo, MOXIE, Reciclar Agua, Bunker, Tierra y Siguiente Sol).
+1. **Escena 3D Babylon.js (`babylonSceneManager.js`):**
+   * Controla la camara orbital `ArcRotateCamera` con limites de zoom y elevacion configurados para que ninos de 7 a 12 anos no se desorienten.
+   * Modela los modulos de la base en Jezero (Cupula Habitat, Invernadero Agrodome transparente, paneles solares con inclinacion y caja termica MOXIE).
+   * Sistema de particulas de polvo marciano que incrementa su intensidad segun el nivel de opacidad atmosferica (datos MEDA).
+   * Animacion del rover de exploracion cuando se activa la orden de limpiar paneles.
+2. **Componente React `BabylonViewport.jsx`:**
+   * Monta el lienzo WebGL y sincroniza los cambios de estado de React con la escena 3D (iluminacion diurna/nocturna, escalado de cultivos, tinte de polvo).
+   * Detecta clics en los objetos 3D mediante Raycasting para cambiar automaticamente la vista de la consola al modulo seleccionado.
+3. **Consola `PowerCoreView.jsx`:**
+   * Visualizacion de almacenamiento en baterias, generacion solar estimada y factor de atenuacion por polvo MEDA.
+   * Acciones operativas: Despliegue de rover para limpieza fotovoltaica y activacion de protocolo de ahorro nocturno.
 
 #### C. Datos Cientificos Asociados:
-* **Perseverance Mastcam-Z:** Representacion visual del relieve y colores del Cráter Jezero.
-* **Mecanica del Rover:** Modelado del chasis y brazo con cepillo para remocion de regolito.
+* **Perseverance MEDA:** Medicion de factor tau de opacidad atmosferica por polvo en suspension en Jezero.
+* **Perseverance Mastcam-Z:** Geologia y colorimetria del suelo marciano.
 
 ---
 
-### 2.2 DESARROLLADOR 2: Motor de Calculo, Estado Global y Reglas de Recursos
+### 2.2 DESARROLLADOR 2: Modulo Agrodome, Modulo Life Support y Motor de Simulacion
 
 #### A. Archivos y Componentes Asignados:
+* `src/modules/agrodome/AgrodomeView.jsx`
+* `src/modules/life-support/LifeSupportView.jsx`
 * `src/services/gameEngine.js`
-* `src/data/gameData.js`
-* Soporte en la logica central de `src/App.jsx`
 
 #### B. Responsabilidades Concretas:
-1. **Logica de Transicion de Sol (`advanceSolState`):**
-   * Modela la generacion fotovoltaica bruta y su reduccion por opacidad del polvo:
-     $$\text{Generacion Neta} = \text{Generacion Base} \times (1 - \text{Polvo} \times 0.7) - \text{Consumo Base}$$
-   * Descuenta el consumo metabolico diario de agua, oxigeno y raciones de comida.
-   * Incrementa la acumulacion natural de polvo marciano (+4% por Sol).
-2. **Ciclo de Cultivo del Agrodome:**
-   * Al sembrar: descuenta agua y energia inmediatamente.
-   * Progresion de maduracion en dos Soles y cosecha automatica (+25 Comida, +8 Oxigeno).
-3. **Acciones Tacticas (`executeAction`):**
-   * Limpieza de paneles: lleva el polvo a 0% a cambio de 10 unidades de energia.
-   * Generacion MOXIE: produce 18 unidades de oxigeno a cambio de 12 unidades de energia.
-   * Reciclaje ECLSS: purifica 16 unidades de agua a cambio de 8 unidades de energia.
-4. **Calculo del Reporte Final (`generateReport`):**
-   * Calcula el puntaje de supervivencia promedio y determina el rango alcanzado (Comandante Supremo, Oficial de Sistemas, Cadete Junior).
+1. **Modulo Agrodome (`AgrodomeView.jsx`):**
+   * Gestion de bandejas de cultivo hidropónico con estados visibles: Vacio, Brote, Maduracion y Listo para Cosechar.
+   * Acciones: Sembrar cultivo Veggie (costo inmediato de agua y energia con beneficio diferido), cosechar alimentos e iluminacion LED potenciada.
+2. **Modulo Life Support (`LifeSupportView.jsx`):**
+   * Consola de gases y liquidos: Reservas de agua potable, oxigeno respirable y porcentaje de concentracion de dioxido de carbono.
+   * Acciones: Electrolisis MOXIE (+18 O2), reciclador de circuito cerrado ECLSS (+16 H2O) y renovacion de filtros quimicos de CO2.
+3. **Motor de Simulacion (`gameEngine.js`):**
+   * Implementacion de las formulas matematicas de balance diario por Sol (produccion solar ajustada por polvo, consumo metabolico de 4 astronautas y maduracion de cosechas).
+   * Evaluacion de condiciones de fallo critico y victoria al finalizar el Sol 7.
 
 #### C. Datos Cientificos Asociados:
-* **NASA MEDA:** Tasa de atenuacion de luz solar por polvo marciano.
-* **ISS ECLSS:** Eficiencia del 80-98% en reciclaje hidrico en circuito cerrado.
+* **NASA Veggie y OSDR:** Cultivos espaciales en condiciones de microgravedad y espectros luminosos LED rojo y azul.
+* **Perseverance MOXIE:** Electrolisis de dioxido de carbono marciano a 800 grados Celsius.
+* **ISS ECLSS:** Recuperacion de circuito cerrado de agua en estaciones tripuladas.
 
 ---
 
-### 2.3 DESARROLLADOR 3: Audio Chiptune, Modales de Ciencia NASA y Certificado
+### 2.3 DESARROLLADOR 3: Modulo Shield System, Modulo Mission Control, Audio y Modales
 
 #### A. Archivos y Componentes Asignados:
+* `src/modules/shield-system/ShieldSystemView.jsx`
+* `src/modules/mission-control/MissionControlView.jsx`
+* `src/components/TelemetryHUD.jsx`
+* `src/components/ResourceDistributionPanel.jsx`
 * `src/services/audioService.js`
+* `src/components/StartScene.jsx`
+* `src/components/MissionsModal.jsx`
 * `src/components/EventModal.jsx`
 * `src/components/NasaScienceModal.jsx`
 * `src/components/CertificateModal.jsx`
-* `src/components/StartModal.jsx`
 
 #### B. Responsabilidades Concretas:
-1. **Sintetizador Procedural `audioService.js`:**
-   * Sonidos retro de 8 bits generados con Web Audio API (bips, alarmas de emergencia, sonido de motor del rover, fanfarria de victoria).
-2. **Modal de Eventos Diarios `EventModal.jsx`:**
-   * Despliega el incidente critico de cada Sol (tormentas de arena, desabastecimiento, alertas de radiacion) con dos alternativas de eleccion y costos transparentes.
-   * Incluye el boton "Origen del Dato (NASA)".
-3. **Ficha de Procedencia `NasaScienceModal.jsx`:**
-   * Ventana emergente que expone la explicacion cientifica real adaptada a ninos de 7 a 12 anos citando formalmente los instrumentos de la NASA.
-4. **Generador de Certificado `CertificateModal.jsx`:**
-   * Despliega el Diploma Oficial de Comandante Junior con el nombre del usuario, insignias alcanzadas y boton nativo de impresion (`window.print()`).
+1. **Modulo Shield System (`ShieldSystemView.jsx`):**
+   * Monitor de radiacion ambiental y estado del bunker de regolito marciano.
+   * Acciones: Activacion de protocolo de refugio contra tormentas solares, planificacion de salidas EVA al delta antiguo y refuerzo de manto de regolito.
+2. **Modulo Mission Control (`MissionControlView.jsx`):**
+   * Cronograma de 7 Soles con indicador de progreso.
+   * Simulador de latencia de telecomunicaciones Tierra-Marte (14.2 minutos luz) mediante la Red del Espacio Profundo (DSN).
+   * Boton maestro de transicion diaria de Sol.
+3. **Consola `TelemetryHUD.jsx` y Modales:**
+   * Barra superior con medidores de los 6 recursos, salud de la tripulacion, saldo de acciones diarias y pestañas de navegacion entre modulos.
+   * Fichas de procedencia cientifica NASA (`NasaScienceModal.jsx`) con enlaces oficiales.
+   * Diploma oficial descargable e imprimible (`CertificateModal.jsx`).
+4. **Sintetizador Procedural `audioService.js`:**
+   * Emision de tonos Quindar de radio de la NASA, alarmas y fanfarrias con Web Audio API nativo.
 
 #### C. Datos Cientificos Asociados:
-* **NASA CCMC DONKI:** Alertas de Clima Espacial y Eyecciones de Masa Coronal (CME).
-* **NASA MOXIE:** Informes de produccion de oxigeno mediante electrolisis de CO2.
-* **NASA Veggie y OSDR:** Investigacion sobre cultivo de plantas bajo microgravedad y ambientes extremos.
+* **NASA CCMC DONKI:** Catalogo de eyecciones de masa coronal (CME) y clima espacial.
+* **Curiosity RAD:** Mediciones reales de dosis de radiacion en superficie marciana (~0.67 mSv/sol).
+* **NASA Deep Space Network (DSN):** Retardo de propagacion de ondas de radio entre la Tierra y Marte.
 
 ---
 
 ## 3. Instrucciones de Ejecucion y Pruebas
 
 ### 3.1 Modo Desarrollo (Hot Reload)
-Para ejecutar la aplicacion en modo interactivo de desarrollo:
-
 ```bash
 cd Hackaton-SpaceApps2026/frontend
 npm run dev
 ```
-La aplicacion estara disponible de inmediato en `http://localhost:3000`.
+Disponible localmente en `http://localhost:3000`.
 
 ### 3.2 Compilacion para Produccion (Build)
-Para compilar y verificar que no existen errores de sintaxis o empaquetado:
-
 ```bash
 cd Hackaton-SpaceApps2026/frontend
 npm run build
 ```
-Los archivos estaticos optimizados se generan en la carpeta `frontend/dist/`.
+Genera los archivos compilados en `frontend/dist/` en aproximadamente 5 segundos.
 
-### 3.3 Despliegue en la Nube (Vercel / Netlify / GitHub Pages)
-Dado que es un proyecto de Vite estandar:
-1. **Vercel / Netlify:** Importar el repositorio y configurar el directorio raiz como `Hackaton-SpaceApps2026/frontend`. El comando de construccion es `npm run build` y la carpeta de salida es `dist`.
-2. El despliegue toma menos de 60 segundos y entrega una URL publica segura con HTTPS para los jueces de la NASA.
+### 3.3 Despliegue Publico
+Compatible con despliegue en un clic en Vercel, Netlify o GitHub Pages apuntando a la carpeta `Hackaton-SpaceApps2026/frontend`.

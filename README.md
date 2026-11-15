@@ -1,5 +1,5 @@
 # MARS OUTPOST: HORIZONTE ROJO
-## Entrenador de Misiones para Astronautas Junior (7 a 12 anos)
+## Entrenador de Misiones para Astronautas Junior (7 a 12 años)
 ### Especificacion Maestra de Ejecucion · NASA International Space Apps Challenge 2026
 #### Reto Oficial: Build a Junior Astronaut Mission Trainer
 

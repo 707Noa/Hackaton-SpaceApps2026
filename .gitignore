@@ -1,0 +1,46 @@
+# Dependencias de paquetes
+node_modules/
+frontend/node_modules/
+.pnp
+.pnp.js
+
+# Salidas de compilacion y produccion
+dist/
+frontend/dist/
+build/
+out/
+
+# Registros de error y debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Variables de entorno y secretos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Archivos de configuracion del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Configuraciones de editores e IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# Archivos temporales y de depuracion
+*.tmp
+*.temp
+.cache/
+.vite/
+frontend/.vite/

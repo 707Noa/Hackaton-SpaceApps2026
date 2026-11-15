@@ -57,6 +57,13 @@ export class BabylonSceneManager {
     this.keys = {};
     this.controlsEnabled = true;
     this.reducedMotion = false;
+    this.isNight = false;
+    this.powerFailure = false;
+    this.activeHazard = null;
+    this.radiationStorm = false;
+    this.stormVisualIntensity = 0;
+    this.baseFogDensity = 0.012;
+    this.baseFogColor = new BAB.Color3(0.38, 0.14, 0.09);
     this.walkTime = 0;
     this.currentNearby = null;
     this.currentMapTargetKey = null;
@@ -139,8 +146,8 @@ export class BabylonSceneManager {
 
     // Warm Martian atmospheric horizon haze (butterscotch/rust dust fog)
     this.scene.fogMode = BAB.Scene.FOGMODE_EXP2;
-    this.scene.fogDensity = 0.012;
-    this.scene.fogColor = new BAB.Color3(0.38, 0.14, 0.09);
+    this.scene.fogDensity = this.baseFogDensity;
+    this.scene.fogColor = this.baseFogColor.clone();
 
     const earthSize = 3.2;
     const earthInitialPosition = new BAB.Vector3(-12, 11, 16);
@@ -197,7 +204,8 @@ export class BabylonSceneManager {
       const vx = positions[i];
       const vz = positions[i + 2];
       const dist = Math.hypot(vx, vz);
-      if (dist > 17.5) {
+      const insideOutpostGround = Math.abs(vx) <= 20 && Math.abs(vz) <= 20;
+      if (dist > 17.5 && !insideOutpostGround) {
         const edgeFactor = Math.min(1, (dist - 17.5) / 28);
         const angle = Math.atan2(vz, vx);
         // Smooth undulating crater rim + rolling sand dunes + flat-topped mesa ridges
@@ -216,9 +224,20 @@ export class BabylonSceneManager {
     outerGround.material = outerMat;
 
     // Inner walkable base terrain with crisp pixel-art paths
-    const ground = BAB.MeshBuilder.CreateGround('marsTerrain', { width: 36, height: 36, subdivisions: 8 }, this.scene);
+    const groundSize = 40;
+    const ground = BAB.MeshBuilder.CreateGround('marsTerrain', {
+      width: groundSize,
+      height: groundSize,
+      subdivisions: 8
+    }, this.scene);
     const groundMat = new BAB.StandardMaterial('groundMat', this.scene);
-    groundMat.diffuseTexture = createMarsGroundTexture(BAB, this.scene);
+    const groundTexture = createMarsGroundTexture(BAB, this.scene);
+    const textureScale = groundSize / 36;
+    groundTexture.uScale = textureScale;
+    groundTexture.vScale = textureScale;
+    groundTexture.uOffset = (1 - textureScale) / 2;
+    groundTexture.vOffset = (1 - textureScale) / 2;
+    groundMat.diffuseTexture = groundTexture;
     groundMat.specularColor = new BAB.Color3(0, 0, 0);
     ground.material = groundMat;
 
@@ -848,6 +867,11 @@ export class BabylonSceneManager {
   syncGameState(state) {
     if (!state) return;
 
+    this.activeHazard = state.activeHazard || null;
+    this.radiationStorm = this.activeHazard?.type === 'solar_radiation';
+    this.isNight = Boolean(state.isNight);
+    this.powerFailure = state.resources.energy < 10;
+
     const { systemStatuses } = getTelemetrySnapshot(state);
     this.systemStatuses = systemStatuses;
     if (this.currentMapTarget && SYSTEM_BY_MODULE[this.currentMapTarget.module]) {
@@ -869,14 +893,20 @@ export class BabylonSceneManager {
     if (this.hemiLight && this.sunLight) {
       if (state.isNight) {
         this.scene.clearColor = new this.BAB.Color4(0.04, 0.02, 0.05, 1.0);
-        this.hemiLight.intensity = 0.28;
+        this.hemiLight.intensity = this.powerFailure ? 0.08 : 0.28;
         this.sunLight.intensity = 0.22;
-        this.domeLights.forEach((l) => { l.intensity = 2.0; });
+        this.sunLight.diffuse = this.radiationStorm
+          ? new this.BAB.Color3(1.0, 0.62, 0.34)
+          : new this.BAB.Color3(1.0, 0.86, 0.72);
+        this.domeLights.forEach((l) => { l.intensity = this.powerFailure ? 0.04 : 2.0; });
       } else {
         this.scene.clearColor = new this.BAB.Color4(0.11, 0.04, 0.05, 1.0);
-        this.hemiLight.intensity = 0.85;
-        this.sunLight.intensity = 1.1;
-        this.domeLights.forEach((l) => { l.intensity = 1.2; });
+        this.hemiLight.intensity = this.powerFailure ? 0.22 : this.radiationStorm ? 0.62 : 0.85;
+        this.sunLight.intensity = this.radiationStorm ? 0.7 : 1.1;
+        this.sunLight.diffuse = this.radiationStorm
+          ? new this.BAB.Color3(1.0, 0.62, 0.34)
+          : new this.BAB.Color3(1.0, 0.86, 0.72);
+        this.domeLights.forEach((l) => { l.intensity = this.powerFailure ? 0.04 : 1.2; });
       }
     }
 
@@ -896,7 +926,18 @@ export class BabylonSceneManager {
 
     const dust = state.dust === undefined ? 15 : state.dust;
     if (this.dustSystem) {
-      this.dustSystem.emitRate = Math.max(12, Math.round(dust * 2.8));
+      const inDustStorm = this.activeHazard?.type === 'dust_storm';
+      this.dustSystem.emitRate = inDustStorm
+        ? Math.min(280, 150 + Math.round(dust))
+        : Math.max(12, Math.round(dust * 2.8));
+      this.dustSystem.minEmitPower = inDustStorm ? 3 : 1.5;
+      this.dustSystem.maxEmitPower = inDustStorm ? 6 : 3.5;
+      this.dustSystem.direction1 = inDustStorm
+        ? new this.BAB.Vector3(14, -0.15, -2)
+        : new this.BAB.Vector3(9, -0.3, -1);
+      this.dustSystem.direction2 = inDustStorm
+        ? new this.BAB.Vector3(20, 0.5, 2)
+        : new this.BAB.Vector3(14, 0.4, 1);
     }
     this.solarPanels.forEach(({ mat }) => {
       const dustFactor = Math.min(1, dust / 100);
@@ -905,7 +946,12 @@ export class BabylonSceneManager {
 
     if (this.bunkerShieldMesh) {
       this.bunkerShieldMesh.material.alpha = state.bunkerActive ? 0.35 : 0.0;
+      this.bunkerShieldMesh.material.emissiveColor = state.activeHazard?.type === 'solar_radiation'
+        ? new this.BAB.Color3(0.5, 0.8, 1.0)
+        : new this.BAB.Color3(0.1, 0.5, 0.9);
     }
+
+    this.astronautGroup?.setEnabled(!state.bunkerActive);
 
     if (state.roverTask === 'cleaning' && !this.roverAnim.active) {
       this.roverAnim.active = true;
@@ -942,8 +988,8 @@ export class BabylonSceneManager {
       const nx = (movement.x / len) * speed;
       const nz = (movement.z / len) * speed;
 
-      const nextX = Math.max(-15, Math.min(15, this.astronautGroup.position.x + nx));
-      const nextZ = Math.max(-14, Math.min(14, this.astronautGroup.position.z + nz));
+      const nextX = Math.max(-19, Math.min(19, this.astronautGroup.position.x + nx));
+      const nextZ = Math.max(-19, Math.min(19, this.astronautGroup.position.z + nz));
       this.astronautGroup.position.x = nextX;
       this.astronautGroup.position.z = nextZ;
 
@@ -1010,6 +1056,16 @@ export class BabylonSceneManager {
 
     this.updatePlayerMovement();
 
+    const stormTarget = this.activeHazard?.type === 'dust_storm' ? 1 : 0;
+    const stormStep = this.reducedMotion ? 1 : 0.025;
+    this.stormVisualIntensity += (stormTarget - this.stormVisualIntensity) * stormStep;
+    this.scene.fogDensity = this.baseFogDensity + this.stormVisualIntensity * 0.012;
+    this.scene.fogColor = this.BAB.Color3.Lerp(
+      this.baseFogColor,
+      new this.BAB.Color3(0.5, 0.2, 0.1),
+      this.stormVisualIntensity
+    );
+
     const earthDistance = this.BAB.Vector3.Distance(this.camera.position, this.earth.position);
     this.earth.scaling.setAll(earthDistance / this.earthReferenceDistance);
 
@@ -1021,9 +1077,23 @@ export class BabylonSceneManager {
     });
 
     this.domeLights.forEach((light, i) => {
-      const base = light.intensity > 1.5 ? 1.85 : 1.15;
-      light.intensity = this.reducedMotion ? base : base + Math.sin(t * 2.0 + i) * 0.15;
+      const base = this.isNight ? 1.85 : 1.15;
+      light.intensity = this.powerFailure
+        ? 0.04
+        : this.reducedMotion ? base : base + Math.sin(t * 2.0 + i) * 0.15;
     });
+
+    if (this.radiationStorm && !this.isNight && !this.powerFailure) {
+      this.sunLight.intensity = this.reducedMotion ? 0.7 : 0.68 + Math.sin(t * 0.3) * 0.04;
+    }
+
+    if (this.bunkerShieldMesh && this.activeHazard?.type === 'solar_radiation') {
+      this.bunkerShieldMesh.material.alpha = this.reducedMotion
+        ? (this.bunkerShieldMesh.material.alpha > 0 ? 0.58 : 0.0)
+        : (this.bunkerShieldMesh.material.alpha > 0
+          ? 0.54 + Math.sin(t * 1.4) * 0.06
+          : 0.0);
+    }
 
     if (!this.reducedMotion) {
       this.helperBots.forEach((b) => {

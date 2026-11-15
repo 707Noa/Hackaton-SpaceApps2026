@@ -137,9 +137,22 @@ export function getTelemetrySnapshot(state) {
   }));
 
   const severityById = Object.fromEntries(metrics.map(({ id, severity }) => [id, severity]));
-  const alerts = metrics
+  const metricAlerts = metrics
     .filter((metric) => metric.severity !== 'nominal')
     .sort((a, b) => severityOrder[b.severity] - severityOrder[a.severity] || a.order - b.order);
+  const hazardAlert = state.activeHazard ? {
+    id: state.activeHazard.type,
+    severity: state.activeHazard.type === 'solar_radiation' ? 'critical' : 'warning',
+    module: state.activeHazard.type === 'solar_radiation' ? 'shield_system' : 'power_core',
+    title: state.activeHazard.type === 'solar_radiation' ? 'Tormenta solar activa' : 'Tormenta de polvo activa',
+    message: state.activeHazard.type === 'solar_radiation'
+      ? 'Cierra el búnker para proteger a la tripulación de la radiación.'
+      : 'El polvo reduce la energía solar. Limpia los paneles con el rover.',
+    order: -1
+  } : null;
+  const alerts = hazardAlert
+    ? [hazardAlert, ...metricAlerts]
+    : metricAlerts;
 
   return {
     metrics,

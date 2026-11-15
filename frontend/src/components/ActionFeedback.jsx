@@ -33,7 +33,7 @@ export default function ActionFeedback({ feedback, onDismiss }) {
             <span
               key={change.label}
               className={
-                (change.id === 'co2' || change.id === 'dust')
+                (change.id === 'co2' || change.id === 'dust' || change.id === 'radiationDose')
                 ? (change.delta < 0 ? 'feedback-change-positive' : 'feedback-change-negative')
                 : (change.delta > 0 ? 'feedback-change-positive' : 'feedback-change-negative')
               }

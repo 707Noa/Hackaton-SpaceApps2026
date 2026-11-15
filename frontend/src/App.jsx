@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { INITIAL_GAME_STATE, SOL_EVENTS } from './data/gameData';
 import { sounds } from './services/audioService';
-import { executeModuleAction, advanceSolState, applyChoiceToState, generateReport } from './services/gameEngine';
+import {
+  executeModuleAction,
+  advanceSolState,
+  applyChoiceToState,
+  activateEmergencyRescue,
+  generateReport
+} from './services/gameEngine';
 
 import StartScene from './components/StartScene';
 import TelemetryHUD from './components/TelemetryHUD';
@@ -67,17 +73,24 @@ export default function App() {
       { key: 'food', label: 'Comida', icon: '🌱' },
       { key: 'co2', label: 'CO₂', icon: '💨' },
       { key: 'dust', label: 'Polvo', icon: '🌪️' },
-      { key: 'shield', label: 'Escudo', icon: '🛡️' }
+      { key: 'shield', label: 'Escudo', icon: '🛡️' },
+      { key: 'health', label: 'Salud', icon: '🧑‍🚀' },
+      { key: 'radiationDose', label: 'Dosis de radiación', icon: '☢️' }
     ];
 
     return trackedResources
       .map(({ key, ...resource }) => ({
         ...resource,
         id: key,
-        delta: (key === 'dust' || key === 'shield' ? after[key] : after.resources[key])
-          - (key === 'dust' || key === 'shield' ? before[key] : before.resources[key])
+        delta: getTrackedValue(after, key) - getTrackedValue(before, key)
       }))
       .filter(({ delta }) => delta !== 0);
+  };
+
+  const getTrackedValue = (state, key) => {
+    if (key === 'dust' || key === 'shield' || key === 'radiationDose') return state[key] || 0;
+    if (key === 'health') return state.crew.health;
+    return state.resources[key];
   };
 
   const showActionFeedback = (before, after, message) => {
@@ -92,6 +105,7 @@ export default function App() {
 
   const handleStartGame = (name) => {
     sounds.playVictory();
+    window.scrollTo(0, 0);
     setGameState((prev) => ({
       ...prev,
       cadetName: name || 'Cadete Explorador',
@@ -120,15 +134,29 @@ export default function App() {
     const { nextState, nextEvent, bubble } = advanceSolState(gameState);
     setGameState(nextState);
     if (nextEvent) setActiveEvent(nextEvent);
-    if (bubble) showBubble(bubble);
+    const healthChange = nextState.crew.health - gameState.crew.health;
+    const summary = healthChange < 0
+      ? `Fin del Sol ${gameState.sol}: la salud bajó ${Math.abs(healthChange)} puntos. Revisa las alertas.`
+      : `Sol ${gameState.sol} completado. Revisa la previsión antes de seguir.`;
+    showBubble(bubble || summary);
   };
 
   const handleChooseEventOption = (choice) => {
     sounds.playClick();
-    const nextState = applyChoiceToState(gameState, choice);
+    const nextState = applyChoiceToState(gameState, choice, activeEvent?.hazard);
     setGameState(nextState);
     showActionFeedback(gameState, nextState, choice.text);
     setActiveEvent(null);
+  };
+
+  const handleEmergencyRescue = () => {
+    const nextState = activateEmergencyRescue(gameState);
+    if (nextState === gameState) return;
+
+    sounds.playPower();
+    setGameState(nextState);
+    setActiveEvent(nextState.victory ? null : SOL_EVENTS[nextState.sol - 1] || null);
+    showBubble('🚀 ¡Protocolo de rescate! La tripulación está estable. Se usaron 25 puntos de ciencia.');
   };
 
   const handle3DModuleSelect = (moduleKey, message) => {
@@ -170,7 +198,7 @@ export default function App() {
 
   // ESCENARIO 2: Interactive Mars Outpost Survival World
   return (
-    <div className={`app-container ${isReducedMotion ? 'reduce-motion' : ''}`}>
+    <div className={`app-container mission-interface ${isReducedMotion ? 'reduce-motion' : ''}`}>
       <TelemetryHUD
         state={gameState}
         isMuted={isMuted}
@@ -192,9 +220,16 @@ export default function App() {
             state={gameState}
             onModuleClick={handle3DModuleSelect}
             speechBubble={speechBubble}
-            controlsEnabled={!hasModalOpen}
+            controlsEnabled={!hasModalOpen && !gameState.bunkerActive}
             reducedMotion={isReducedMotion}
           />
+
+          {!gameState.activeHazard && (
+            <NovaAdvisor
+              state={gameState}
+              onSelectModule={handle3DModuleSelect}
+            />
+          )}
 
           <nav className="module-nav-tabs">
             {moduleTabs.map((tab) => (
@@ -214,11 +249,6 @@ export default function App() {
 
         {/* Right Column: Resource Distribution + Active Module Console */}
         <div className="dashboard-column">
-          <NovaAdvisor
-            state={gameState}
-            onSelectModule={handle3DModuleSelect}
-          />
-
           <ResourceDistributionPanel
             state={gameState}
             onSelectModule={handle3DModuleSelect}
@@ -282,6 +312,7 @@ export default function App() {
       {activeEvent && (
         <EventModal
           event={activeEvent}
+          actionsRemaining={gameState.actionsRemaining}
           onChooseOption={handleChooseEventOption}
           onOpenNasaModal={(key) => setActiveNasaKey(key)}
         />
@@ -301,6 +332,8 @@ export default function App() {
           report={report}
           isGameOver={gameState.gameOver}
           onRestart={handleRestart}
+          rescueAvailable={!gameState.emergencyRescueUsed}
+          onRescue={handleEmergencyRescue}
         />
       )}
 

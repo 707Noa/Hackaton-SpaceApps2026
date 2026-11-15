@@ -84,12 +84,45 @@ export default function SolForecastPanel({ state }) {
         <div className="forecast-event">
           <strong>Evento previsto: {forecast.upcomingEvent.title}</strong>
           <span>{forecast.upcomingEvent.subtitle}</span>
+          {forecast.upcomingEvent.hazard === 'solar_radiation' && (
+            <span className="forecast-hazard-deadline">
+              ⏳ Plazo: prepara el búnker antes de cerrar este Sol o durante el Sol {forecast.nextSol}.
+            </span>
+          )}
+          {forecast.upcomingEvent.hazard === 'dust_storm' && (
+            <span className="forecast-hazard-deadline">
+              ⏳ Próximo Sol: el polvo reducirá la energía solar. Deja una orden para el rover.
+            </span>
+          )}
+        </div>
+      )}
+
+      {state.activeHazard && (
+        <div className={`active-hazard-card active-hazard-${state.activeHazard.type}`} role="status">
+          <strong>
+            {state.activeHazard.type === 'solar_radiation'
+              ? `☀️ Tormenta solar · ${state.activeHazard.remainingSols} Sol(es)`
+              : '🌪️ Tormenta de polvo activa'}
+          </strong>
+          <span>
+            {state.activeHazard.type === 'solar_radiation'
+              ? state.bunkerActive
+                ? 'La tripulación está protegida dentro del búnker.'
+                : 'La exposición suma dosis y reduce la salud. Cierra el búnker.'
+              : 'Los paneles producen menos energía hasta que pase el temporal.'}
+          </span>
         </div>
       )}
 
       <p className="forecast-crew">
         🧑‍🚀 Salud de la tripulación: {state.crew.health}% → {forecast.projectedCrewHealth}%
       </p>
+
+      {state.activeHazard?.type === 'solar_radiation' && !state.bunkerActive && (
+        <p className="forecast-risk-note">
+          ☢️ Índice de exposición previsto al cerrar el Sol: {forecast.projectedRadiationDose}%.
+        </p>
+      )}
 
       {forecast.survivalRisk && (
         <p className="forecast-risk-note">

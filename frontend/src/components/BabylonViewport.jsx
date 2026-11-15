@@ -74,6 +74,25 @@ export default function BabylonViewport({
     <div className="pixel-viewport-frame pixel-box">
       <canvas ref={canvasRef} className="pixel-canvas-element" />
 
+      {state.activeHazard && (
+        <div
+          className={`viewport-hazard-effect viewport-hazard-${state.activeHazard.type}`}
+          role="status"
+          aria-live="assertive"
+        >
+          <strong>
+            {state.activeHazard.type === 'solar_radiation'
+              ? '☀️ ALERTA DE RADIACIÓN'
+              : '🌪️ TORMENTA DE POLVO'}
+          </strong>
+          <span>
+            {state.activeHazard.type === 'solar_radiation'
+              ? state.bunkerActive ? 'Tripulación protegida en el búnker' : 'Cierra el búnker antes de terminar el Sol'
+              : 'Paneles solares afectados · Revisa el rover'}
+          </span>
+        </div>
+      )}
+
       {mapTarget && (
         <div className="map-target-card" aria-live="polite">
           <strong>{mapTarget.title}</strong>
@@ -121,7 +140,11 @@ export default function BabylonViewport({
       )}
 
       {/* Touch / On-screen D-Pad for Tablets & Kids */}
-      <div className="touch-dpad" aria-label="Controles de movimiento">
+      <div
+        className={`touch-dpad ${state.bunkerActive ? 'touch-dpad-disabled' : ''}`}
+        aria-label="Controles de movimiento"
+        aria-disabled={state.bunkerActive}
+      >
         <button className="dpad-btn dpad-up" {...bindVirtualKey('ArrowUp')} title="Arriba (W)" aria-label="Mover hacia arriba">▲</button>
         <div className="dpad-mid">
           <button className="dpad-btn dpad-left" {...bindVirtualKey('ArrowLeft')} title="Izquierda (A)" aria-label="Mover hacia la izquierda">◀</button>
@@ -133,11 +156,15 @@ export default function BabylonViewport({
       {/* Retro Interactive Hint Bar */}
       <div className="viewport-hint-bar">
         <span className="badge-pixel-engine">CONTROLES</span>
-        <span className="hint-text">WASD o Flechas: Caminar • [E]: Entrar • Arrastra: Rotar • +/-: Zoom</span>
+        <span className="hint-text">
+          {state.bunkerActive
+            ? 'Tripulación en el búnker: usa los módulos y abre el refugio cuando pase el riesgo.'
+            : 'WASD o Flechas: Caminar • [E]: Entrar • Arrastra: Rotar • +/-: Zoom'}
+        </span>
       </div>
 
       {/* Dynamic NOVA Speech Bubble Overlay */}
-      {speechBubble && Date.now() < speechBubble.timer && (
+      {speechBubble && !state.activeHazard && Date.now() < speechBubble.timer && (
         <div className="viewport-speech-bubble">
           <span className="bubble-speaker">NOVA (ASISTENTE):</span>
           <span>{speechBubble.text}</span>

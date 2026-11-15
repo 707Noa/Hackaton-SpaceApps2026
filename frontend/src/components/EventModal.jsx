@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function EventModal({ event, onChooseOption, onOpenNasaModal }) {
+export default function EventModal({ event, actionsRemaining = 2, onChooseOption, onOpenNasaModal }) {
   if (!event) return null;
 
   return (
@@ -16,6 +16,19 @@ export default function EventModal({ event, onChooseOption, onOpenNasaModal }) {
         <div className="modal-desc">
           {event.description}
         </div>
+
+        {event.hazard && (
+          <div className={`event-deadline-callout event-deadline-${event.hazard}`} role="status">
+            <strong>
+              {event.hazard === 'solar_radiation' ? '☢️ PLAZO DE PROTECCIÓN' : '🌪️ ALERTA DE CLIMA'}
+            </strong>
+            <span>
+              {event.hazard === 'solar_radiation'
+                ? `Tienes ${actionsRemaining} órdenes antes de cerrar este Sol. La radiación puede afectar la salud durante 2 Soles.`
+                : 'Tienes este Sol para limpiar los paneles. Durante el temporal producirán menos energía.'}
+            </span>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {event.choices.map((c) => (

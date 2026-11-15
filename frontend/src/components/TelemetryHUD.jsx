@@ -56,7 +56,7 @@ export default function TelemetryHUD({
             🧑‍🚀 SALUD {crew.health}%
           </span>
           <span className="actions-badge">
-            ÓRDENES: {actionsRemaining}/2
+            ÓRDENES: {actionsRemaining}/{state.maxActionsPerSol}
           </span>
 
           <button 
@@ -102,16 +102,19 @@ export default function TelemetryHUD({
         {activeAlert ? (
           <>
             <span className="alert-banner-heading">
-              {activeAlert.severity === 'critical' ? 'ALERTA CRÍTICA' : 'AVISO OPERATIVO'}
+              {activeAlert.severity === 'critical' ? 'ALERTA CRÍTICA' : 'AVISO DE MISIÓN'}
             </span>
-            <strong>{activeAlert.title}</strong>
-            <span className="alert-banner-message">{activeAlert.message}</span>
-            {alerts.length > 1 && <span className="alert-count">+{alerts.length - 1} avisos</span>}
+            <strong>
+              {alerts.length > 1
+                ? `${alerts.length} sistemas necesitan atención`
+                : activeAlert.title || 'NOVA tiene un consejo para ti'}
+            </strong>
+            <span className="alert-banner-message">Usa "IR AL SISTEMA" para revisarlo.</span>
             <button
               className="telemetry-alert-action"
               onClick={() => onSelectModule(activeAlert.module, activeAlert.message)}
             >
-              REVISAR
+              IR AL SISTEMA
             </button>
           </>
         ) : (

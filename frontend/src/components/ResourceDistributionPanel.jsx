@@ -147,6 +147,23 @@ export default function ResourceDistributionPanel({ state, onSelectModule }) {
           </div>
         ))}
       </div>
+
+      {state.radiationDose > 0 && (
+        <div className="radiation-dose-meter" aria-label={`Índice de exposición a radiación ${state.radiationDose}%`}>
+          <span>☢️ Exposición acumulada</span>
+          <strong>{state.radiationDose}%</strong>
+          <span className="radiation-dose-track" aria-hidden="true">
+            <span style={{ width: `${state.radiationDose}%` }} />
+          </span>
+          <button
+            type="button"
+            className="radiation-dose-action"
+            onClick={() => onSelectModule('shield_system', 'Cierra el búnker para detener nuevas exposiciones.')}
+          >
+            REVISAR REFUGIO →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

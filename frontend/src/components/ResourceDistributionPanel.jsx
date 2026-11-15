@@ -1,13 +1,15 @@
 import React from 'react';
+import { getTelemetrySnapshot } from '../services/telemetryStatus';
 
 export default function ResourceDistributionPanel({ state }) {
   const { resources, shield, scienceProgress } = state;
-
-  const getStatus = (val, inverted = false) => {
-    const effective = inverted ? 100 - val : val;
-    if (effective >= 50) return { label: 'Bien', color: '#10B981', pillClass: 'status-ok' };
-    if (effective >= 25) return { label: 'Cuidado', color: '#F59E0B', pillClass: 'status-warn' };
-    return { label: '¡Alerta!', color: '#EF4444', pillClass: 'status-crit' };
+  const metricStatuses = Object.fromEntries(
+    getTelemetrySnapshot(state).metrics.map(({ id, severity }) => [id, severity])
+  );
+  const statusStyles = {
+    nominal: { label: 'Bien', color: '#10B981', pillClass: 'status-ok' },
+    warning: { label: 'Cuidado', color: '#F59E0B', pillClass: 'status-warn' },
+    critical: { label: '¡Alerta!', color: '#EF4444', pillClass: 'status-crit' }
   };
 
   const items = [
@@ -18,7 +20,7 @@ export default function ResourceDistributionPanel({ state }) {
       hint: 'Para máquinas y luz',
       val: resources.energy,
       unit: '%',
-      status: getStatus(resources.energy)
+      status: statusStyles[metricStatuses.energy]
     },
     {
       id: 'water',
@@ -27,7 +29,7 @@ export default function ResourceDistributionPanel({ state }) {
       hint: 'Para beber y huerta',
       val: resources.water,
       unit: '%',
-      status: getStatus(resources.water)
+      status: statusStyles[metricStatuses.water]
     },
     {
       id: 'oxygen',
@@ -36,7 +38,7 @@ export default function ResourceDistributionPanel({ state }) {
       hint: 'Aire para respirar',
       val: resources.oxygen,
       unit: '%',
-      status: getStatus(resources.oxygen)
+      status: statusStyles[metricStatuses.oxygen]
     },
     {
       id: 'co2',
@@ -45,7 +47,7 @@ export default function ResourceDistributionPanel({ state }) {
       hint: 'Mantenerlo bajo (<25%)',
       val: resources.co2,
       unit: '%',
-      status: getStatus(resources.co2, true)
+      status: statusStyles[metricStatuses.co2]
     },
     {
       id: 'food',
@@ -54,7 +56,7 @@ export default function ResourceDistributionPanel({ state }) {
       hint: 'Raciones del equipo',
       val: resources.food,
       unit: '%',
-      status: getStatus(resources.food)
+      status: statusStyles[metricStatuses.food]
     },
     {
       id: 'shield',
@@ -63,7 +65,7 @@ export default function ResourceDistributionPanel({ state }) {
       hint: 'Protección solar',
       val: shield,
       unit: '%',
-      status: getStatus(shield)
+      status: statusStyles[metricStatuses.shield]
     }
   ];
 

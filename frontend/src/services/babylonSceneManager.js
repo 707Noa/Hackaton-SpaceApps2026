@@ -12,6 +12,7 @@ import {
   createEarthTexture,
   createRockTexture
 } from './pixelTextureFactory';
+import { getTelemetrySnapshot } from './telemetryStatus';
 
 export class BabylonSceneManager {
   constructor(canvas, onModuleClick, onProximityChange) {
@@ -35,6 +36,7 @@ export class BabylonSceneManager {
     this.solarPanels = [];
     this.cropMeshes = [];
     this.domeLights = [];
+    this.statusBeacons = {};
     this.bunkerShieldMesh = null;
     this.roverGroup = null;
     this.astronautGroup = null;
@@ -67,6 +69,7 @@ export class BabylonSceneManager {
     this.initSolarArrays();
     this.initHabitatAndLab();
     this.initBunker();
+    this.initStatusBeacons();
     this.initRover();
     this.initAstronautAndBots();
     this.initMissionBeacon();
@@ -514,6 +517,39 @@ export class BabylonSceneManager {
     this.bunkerShieldMesh.metadata = meta;
   }
 
+  initStatusBeacons() {
+    const BAB = this.BAB;
+    const beaconConfigs = {
+      power: new BAB.Vector3(-11.5, 2.8, 0),
+      agrodome: new BAB.Vector3(-7.5, 4.5, 6.5),
+      life_support: new BAB.Vector3(7.3, 4.8, 4.8),
+      shield: new BAB.Vector3(6.5, 3.0, -10.5)
+    };
+
+    this.statusBeaconColors = {
+      nominal: new BAB.Color3(0.15, 0.9, 0.48),
+      warning: new BAB.Color3(1.0, 0.62, 0.12),
+      critical: new BAB.Color3(1.0, 0.16, 0.12)
+    };
+
+    Object.entries(beaconConfigs).forEach(([system, position]) => {
+      const mesh = BAB.MeshBuilder.CreateSphere(`statusBeacon_${system}`, {
+        diameter: 0.42,
+        segments: 4
+      }, this.scene);
+      mesh.position = position;
+      mesh.isPickable = false;
+
+      const material = new BAB.StandardMaterial(`statusBeaconMat_${system}`, this.scene);
+      material.diffuseColor = this.statusBeaconColors.nominal;
+      material.emissiveColor = this.statusBeaconColors.nominal;
+      material.disableLighting = true;
+      mesh.material = material;
+
+      this.statusBeacons[system] = { mesh, material, severity: 'nominal' };
+    });
+  }
+
   initMissionBeacon() {
     const BAB = this.BAB;
     // Central holographic mission terminal kiosk on the north plaza
@@ -748,6 +784,14 @@ export class BabylonSceneManager {
   syncGameState(state) {
     if (!state) return;
 
+    const { systemStatuses } = getTelemetrySnapshot(state);
+    Object.entries(this.statusBeacons).forEach(([system, beacon]) => {
+      const severity = systemStatuses[system];
+      beacon.severity = severity;
+      beacon.material.diffuseColor = this.statusBeaconColors[severity];
+      beacon.material.emissiveColor = this.statusBeaconColors[severity];
+    });
+
     if (this.hemiLight && this.sunLight) {
       if (state.isNight) {
         this.scene.clearColor = new this.BAB.Color4(0.04, 0.02, 0.05, 1.0);
@@ -776,7 +820,7 @@ export class BabylonSceneManager {
       }
     });
 
-    const dust = state.dust || 15;
+    const dust = state.dust === undefined ? 15 : state.dust;
     if (this.dustSystem) {
       this.dustSystem.emitRate = Math.max(12, Math.round(dust * 2.8));
     }
@@ -875,6 +919,11 @@ export class BabylonSceneManager {
 
     const earthDistance = this.BAB.Vector3.Distance(this.camera.position, this.earth.position);
     this.earth.scaling.setAll(earthDistance / this.earthReferenceDistance);
+
+    Object.values(this.statusBeacons).forEach(({ mesh, severity }) => {
+      const pulse = severity === 'critical' ? 1 + (0.12 * (0.5 + 0.5 * Math.sin(t * 5))) : 1;
+      mesh.scaling.setAll(pulse);
+    });
 
     this.domeLights.forEach((light, i) => {
       const base = light.intensity > 1.5 ? 1.85 : 1.15;

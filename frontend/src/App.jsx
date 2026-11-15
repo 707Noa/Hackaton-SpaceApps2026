@@ -138,6 +138,7 @@ export default function App() {
           setShowMissions(true);
         }}
         onAdvanceSol={handleAdvanceSol}
+        onSelectModule={handle3DModuleSelect}
       />
 
       <div className="main-game-grid">

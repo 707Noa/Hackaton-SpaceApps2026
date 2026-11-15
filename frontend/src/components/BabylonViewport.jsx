@@ -60,6 +60,25 @@ export default function BabylonViewport({
     <div className="pixel-viewport-frame pixel-box">
       <canvas ref={canvasRef} className="pixel-canvas-element" />
 
+      <div className="viewport-zoom-controls" aria-label="Controles de zoom">
+        <button
+          className="viewport-zoom-btn"
+          onClick={() => managerRef.current?.zoomCamera(-1)}
+          aria-label="Acercar cámara"
+          title="Acercar"
+        >
+          +
+        </button>
+        <button
+          className="viewport-zoom-btn"
+          onClick={() => managerRef.current?.zoomCamera(1)}
+          aria-label="Alejar cámara"
+          title="Alejar"
+        >
+          -
+        </button>
+      </div>
+
       {/* Proximity Action Prompt when walking near a building */}
       {nearbyZone && (
         <button
@@ -87,7 +106,7 @@ export default function BabylonViewport({
       {/* Retro Interactive Hint Bar */}
       <div className="viewport-hint-bar">
         <span className="badge-pixel-engine">CONTROLES</span>
-        <span className="hint-text">WASD o Flechas: Caminar • [E]: Entrar al edificio • Arrastra: Rotar cámara</span>
+        <span className="hint-text">WASD o Flechas: Caminar • [E]: Entrar • Arrastra: Rotar • +/-: Zoom</span>
       </div>
 
       {/* Dynamic NOVA Speech Bubble Overlay */}

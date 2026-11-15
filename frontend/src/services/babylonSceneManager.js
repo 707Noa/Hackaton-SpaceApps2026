@@ -94,6 +94,7 @@ export class BabylonSceneManager {
       this.scene
     );
     this.camera.attachControl(this.canvas, true);
+    this.camera.inputs.removeByType('ArcRotateCameraMouseWheelInput');
     this.camera.lowerRadiusLimit = 14;
     this.camera.upperRadiusLimit = 42;
     this.camera.lowerBetaLimit = 0.35;
@@ -126,9 +127,16 @@ export class BabylonSceneManager {
     this.scene.fogDensity = 0.012;
     this.scene.fogColor = new BAB.Color3(0.38, 0.14, 0.09);
 
-    const earth = BAB.MeshBuilder.CreatePlane('pixelEarth', { size: 3.2 }, this.scene);
-    earth.position = new BAB.Vector3(-12, 11, 16);
+    const earthSize = 3.2;
+    const earthInitialPosition = new BAB.Vector3(-12, 11, 16);
+    this.earthReferenceDistance = BAB.Vector3.Distance(this.camera.position, earthInitialPosition);
+    const earthDirection = earthInitialPosition.subtract(this.camera.position).normalize();
+    const earthDistance = 120;
+    const earth = BAB.MeshBuilder.CreatePlane('pixelEarth', { size: earthSize }, this.scene);
+    earth.position = this.camera.position.add(earthDirection.scale(earthDistance));
+    earth.scaling.setAll(earthDistance / this.earthReferenceDistance);
     earth.billboardMode = BAB.Mesh.BILLBOARDMODE_ALL;
+    this.earth = earth;
 
     const earthMat = new BAB.StandardMaterial('earthMat', this.scene);
     const earthTex = createEarthTexture(BAB, this.scene);
@@ -136,6 +144,7 @@ export class BabylonSceneManager {
     earthMat.diffuseTexture = earthTex;
     earthMat.emissiveTexture = earthTex;
     earthMat.useAlphaFromDiffuseTexture = true;
+    earthMat.fogEnabled = false;
     earthMat.specularColor = new BAB.Color3(0, 0, 0);
     earth.material = earthMat;
     earth.metadata = {
@@ -726,6 +735,16 @@ export class BabylonSceneManager {
     if (!enabled) this.keys = {};
   }
 
+  zoomCamera(direction) {
+    if (!this.camera) return;
+
+    const zoomFactor = direction < 0 ? 0.9 : 1.1;
+    this.camera.radius = Math.max(
+      this.camera.lowerRadiusLimit,
+      Math.min(this.camera.upperRadiusLimit, this.camera.radius * zoomFactor)
+    );
+  }
+
   syncGameState(state) {
     if (!state) return;
 
@@ -853,6 +872,9 @@ export class BabylonSceneManager {
     const t = Date.now() * 0.003;
 
     this.updatePlayerMovement();
+
+    const earthDistance = this.BAB.Vector3.Distance(this.camera.position, this.earth.position);
+    this.earth.scaling.setAll(earthDistance / this.earthReferenceDistance);
 
     this.domeLights.forEach((light, i) => {
       const base = light.intensity > 1.5 ? 1.85 : 1.15;

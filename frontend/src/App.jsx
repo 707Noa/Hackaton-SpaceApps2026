@@ -7,6 +7,8 @@ import StartScene from './components/StartScene';
 import TelemetryHUD from './components/TelemetryHUD';
 import BabylonViewport from './components/BabylonViewport';
 import ResourceDistributionPanel from './components/ResourceDistributionPanel';
+import NovaAdvisor from './components/NovaAdvisor';
+import ActionFeedback from './components/ActionFeedback';
 
 import AgrodomeView from './modules/agrodome/AgrodomeView';
 import PowerCoreView from './modules/power-core/PowerCoreView';
@@ -27,7 +29,13 @@ export default function App() {
   const [activeEvent, setActiveEvent] = useState(null);
   const [activeNasaKey, setActiveNasaKey] = useState(null);
   const [speechBubble, setSpeechBubble] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [isReducedMotion, setIsReducedMotion] = useState(
+    () => typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 
   const hasModalOpen = Boolean(
     showMissions || activeEvent || activeNasaKey || gameState.victory || gameState.gameOver
@@ -51,6 +59,37 @@ export default function App() {
     setSpeechBubble({ text, timer: Date.now() + duration });
   };
 
+  const getResourceChanges = (before, after) => {
+    const trackedResources = [
+      { key: 'energy', label: 'Energía', icon: '⚡' },
+      { key: 'water', label: 'Agua', icon: '💧' },
+      { key: 'oxygen', label: 'Oxígeno', icon: '🫁' },
+      { key: 'food', label: 'Comida', icon: '🌱' },
+      { key: 'co2', label: 'CO₂', icon: '💨' },
+      { key: 'dust', label: 'Polvo', icon: '🌪️' },
+      { key: 'shield', label: 'Escudo', icon: '🛡️' }
+    ];
+
+    return trackedResources
+      .map(({ key, ...resource }) => ({
+        ...resource,
+        id: key,
+        delta: (key === 'dust' || key === 'shield' ? after[key] : after.resources[key])
+          - (key === 'dust' || key === 'shield' ? before[key] : before.resources[key])
+      }))
+      .filter(({ delta }) => delta !== 0);
+  };
+
+  const showActionFeedback = (before, after, message) => {
+    const succeeded = before !== after;
+    setActionFeedback({
+      id: Date.now(),
+      status: succeeded ? 'success' : 'warning',
+      message: message || (succeeded ? 'La base actualizó sus sistemas.' : 'No se aplicaron cambios.'),
+      changes: succeeded ? getResourceChanges(before, after) : []
+    });
+  };
+
   const handleStartGame = (name) => {
     sounds.playVictory();
     setGameState((prev) => ({
@@ -72,6 +111,7 @@ export default function App() {
     sounds.playClick();
     const { nextState, bubble } = executeModuleAction(gameState, moduleName, actionType, payload);
     setGameState(nextState);
+    showActionFeedback(gameState, nextState, bubble);
     if (bubble) showBubble(bubble);
   };
 
@@ -87,6 +127,7 @@ export default function App() {
     sounds.playClick();
     const nextState = applyChoiceToState(gameState, choice);
     setGameState(nextState);
+    showActionFeedback(gameState, nextState, choice.text);
     setActiveEvent(null);
   };
 
@@ -109,6 +150,7 @@ export default function App() {
     setActiveEvent(null);
     setActiveNasaKey(null);
     setSpeechBubble(null);
+    setActionFeedback(null);
   };
 
   // ESCENARIO 1: Dedicated Start & Mission Briefing Screen
@@ -128,11 +170,13 @@ export default function App() {
 
   // ESCENARIO 2: Interactive Mars Outpost Survival World
   return (
-    <div className="app-container">
+    <div className={`app-container ${isReducedMotion ? 'reduce-motion' : ''}`}>
       <TelemetryHUD
         state={gameState}
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
+        isReducedMotion={isReducedMotion}
+        onToggleReducedMotion={() => setIsReducedMotion((reduced) => !reduced)}
         onOpenMissions={() => {
           sounds.playClick();
           setShowMissions(true);
@@ -149,6 +193,7 @@ export default function App() {
             onModuleClick={handle3DModuleSelect}
             speechBubble={speechBubble}
             controlsEnabled={!hasModalOpen}
+            reducedMotion={isReducedMotion}
           />
 
           <nav className="module-nav-tabs">
@@ -169,7 +214,15 @@ export default function App() {
 
         {/* Right Column: Resource Distribution + Active Module Console */}
         <div className="dashboard-column">
-          <ResourceDistributionPanel state={gameState} />
+          <NovaAdvisor
+            state={gameState}
+            onSelectModule={handle3DModuleSelect}
+          />
+
+          <ResourceDistributionPanel
+            state={gameState}
+            onSelectModule={handle3DModuleSelect}
+          />
 
           <div className="active-module-slot">
             {activeModule === 'mission_control' && (
@@ -250,6 +303,13 @@ export default function App() {
           onRestart={handleRestart}
         />
       )}
+
+      <ActionFeedback
+        feedback={actionFeedback}
+        onDismiss={(feedbackId) => setActionFeedback((current) => (
+          current?.id === feedbackId ? null : current
+        ))}
+      />
     </div>
   );
 }

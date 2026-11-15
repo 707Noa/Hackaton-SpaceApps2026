@@ -8,7 +8,9 @@ export default function TelemetryHUD({
   onToggleMute,
   onOpenMissions,
   onAdvanceSol,
-  onSelectModule
+  onSelectModule,
+  isReducedMotion,
+  onToggleReducedMotion
 }) {
   const { sol, totalSols, crew, actionsRemaining, completedMissions = [] } = state;
   const { metrics, alerts } = getTelemetrySnapshot(state);
@@ -75,8 +77,20 @@ export default function TelemetryHUD({
           <button 
             className="pixel-btn text-xs audio-toggle-btn"
             onClick={onToggleMute}
+            aria-label={isMuted ? 'Activar sonido' : 'Silenciar sonido'}
+            title={isMuted ? 'Activar sonido' : 'Silenciar sonido'}
           >
             {isMuted ? '🔇' : '🔊'}
+          </button>
+
+          <button
+            className="pixel-btn text-xs motion-toggle-btn"
+            onClick={onToggleReducedMotion}
+            aria-pressed={isReducedMotion}
+            aria-label={isReducedMotion ? 'Desactivar movimiento reducido' : 'Activar movimiento reducido'}
+            title={isReducedMotion ? 'Desactivar movimiento reducido' : 'Activar movimiento reducido'}
+          >
+            {isReducedMotion ? '🐢' : '✨'}
           </button>
         </div>
       </div>

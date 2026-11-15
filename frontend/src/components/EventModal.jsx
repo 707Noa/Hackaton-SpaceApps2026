@@ -19,14 +19,15 @@ export default function EventModal({ event, onChooseOption, onOpenNasaModal }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {event.choices.map((c) => (
-            <div 
-              key={c.id} 
+            <button
+              type="button"
+              key={c.id}
               className="choice-card"
               onClick={() => onChooseOption(c)}
             >
               <div style={{ fontSize: '11px', color: '#FEF08A', marginBottom: '6px' }}>{c.text}</div>
               <div style={{ fontFamily: '"VT323", monospace', fontSize: '17px', color: '#CBD5E1' }}>{c.detail}</div>
-            </div>
+            </button>
           ))}
         </div>
 

@@ -225,24 +225,94 @@ export function executeModuleAction(state, moduleName, actionType, payload = {})
   return { nextState: state, bubble: null };
 }
 
+function getDailyResourceChanges(state) {
+  const dustFactor = state.dust / 100;
+  const solarGeneration = Math.round(28 * (1 - dustFactor * 0.7));
+  const basePowerDraw = state.isNight ? 8 : 16;
+
+  return {
+    energy: solarGeneration - basePowerDraw,
+    water: -8,
+    oxygen: -7,
+    food: -7,
+    co2: 5,
+    dust: 5,
+    solarGeneration,
+    basePowerDraw
+  };
+}
+
+export function getNextSolForecast(state) {
+  if (state.gameOver || state.victory || state.sol >= state.totalSols) return null;
+
+  const dailyChanges = getDailyResourceChanges(state);
+  const projectedResources = {
+    energy: clamp(state.resources.energy + dailyChanges.energy),
+    water: clamp(state.resources.water + dailyChanges.water),
+    oxygen: clamp(state.resources.oxygen + dailyChanges.oxygen),
+    food: clamp(state.resources.food + dailyChanges.food),
+    co2: clamp(state.resources.co2 + dailyChanges.co2),
+    dust: clamp(state.dust + dailyChanges.dust)
+  };
+  const cropHarvest = state.crops.planted && state.crops.solsToHarvest <= 1;
+
+  if (cropHarvest) {
+    projectedResources.food = clamp(projectedResources.food + 25);
+    projectedResources.oxygen = clamp(projectedResources.oxygen + 6);
+  }
+
+  const crewAtRisk = projectedResources.oxygen < 20
+    || projectedResources.water < 20
+    || projectedResources.energy < 15
+    || projectedResources.co2 > 25;
+  const projectedCrewHealth = clamp(state.crew.health + (crewAtRisk ? -15 : 5));
+  const survivalRisk = projectedResources.oxygen <= 0
+    || projectedResources.water <= 0
+    || projectedResources.energy <= 0
+    || projectedCrewHealth <= 0;
+  const lastMessage = state.earthComms[state.earthComms.length - 1];
+  const earthReplyPending = Boolean(
+    lastMessage
+    && lastMessage.sender.startsWith('Comandante')
+    && lastMessage.sol === state.sol
+  );
+  const currentResources = { ...state.resources, dust: state.dust };
+  const resourceDeltas = Object.fromEntries(
+    Object.keys(projectedResources).map((key) => [
+      key,
+      projectedResources[key] - currentResources[key]
+    ])
+  );
+
+  return {
+    nextSol: state.sol + 1,
+    solarGeneration: dailyChanges.solarGeneration,
+    basePowerDraw: dailyChanges.basePowerDraw,
+    projectedResources,
+    resourceDeltas,
+    projectedCrewHealth,
+    cropHarvest,
+    earthReplyPending,
+    survivalRisk,
+    upcomingEvent: survivalRisk ? null : SOL_EVENTS[state.sol] || null
+  };
+}
+
 export function advanceSolState(state) {
   const next = JSON.parse(JSON.stringify(state));
   const res = next.resources;
 
-  // Solar power generation reduced by MEDA dust
-  const dustFactor = next.dust / 100;
-  const solarGen = Math.round(28 * (1 - dustFactor * 0.7));
-  const basePowerDraw = next.isNight ? 8 : 16;
-  res.energy = clamp(res.energy + (solarGen - basePowerDraw));
+  const dailyChanges = getDailyResourceChanges(state);
+  res.energy = clamp(res.energy + dailyChanges.energy);
 
   // Daily consumption
-  res.water = clamp(res.water - 8);
-  res.oxygen = clamp(res.oxygen - 7);
-  res.food = clamp(res.food - 7);
-  res.co2 = clamp(res.co2 + 5);
+  res.water = clamp(res.water + dailyChanges.water);
+  res.oxygen = clamp(res.oxygen + dailyChanges.oxygen);
+  res.food = clamp(res.food + dailyChanges.food);
+  res.co2 = clamp(res.co2 + dailyChanges.co2);
 
   // Dust settles on panels
-  next.dust = clamp(next.dust + 5);
+  next.dust = clamp(next.dust + dailyChanges.dust);
 
   // Crop progress
   let cropBubble = null;

@@ -36,7 +36,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 20,
       module: 'life_support',
       title: 'Oxígeno bajo',
-      message: 'Activa MOXIE o revisa el soporte vital.'
+      message: 'Activa MOXIE o revisa el soporte vital.',
+      explanation: 'La tripulación necesita oxígeno para respirar.'
     },
     {
       id: 'energy',
@@ -48,7 +49,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 20,
       module: 'power_core',
       title: 'Energía baja',
-      message: 'Revisa el consumo y los paneles solares.'
+      message: 'Revisa el consumo y los paneles solares.',
+      explanation: 'La energía hace funcionar las máquinas; el polvo reduce lo que producen los paneles.'
     },
     {
       id: 'water',
@@ -60,7 +62,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 20,
       module: 'life_support',
       title: 'Reserva de agua baja',
-      message: 'Revisa el reciclador ECLSS.'
+      message: 'Revisa el reciclador de agua.',
+      explanation: 'El agua sirve para la tripulación y para cuidar las plantas.'
     },
     {
       id: 'co2',
@@ -72,7 +75,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 40,
       module: 'life_support',
       title: 'CO₂ elevado',
-      message: 'Activa los filtros de aire en Life Support.'
+      message: 'Activa los filtros de aire.',
+      explanation: 'Demasiado CO₂ hace que el aire de la base sea menos seguro.'
     },
     {
       id: 'food',
@@ -84,7 +88,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 15,
       module: 'agrodome',
       title: 'Raciones bajas',
-      message: 'Revisa los cultivos del Agrodome.'
+      message: 'Revisa los cultivos del invernadero.',
+      explanation: 'La comida mantiene a la tripulación sana durante la misión.'
     },
     {
       id: 'shield',
@@ -96,7 +101,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 20,
       module: 'shield_system',
       title: 'Protección debilitada',
-      message: 'Refuerza el escudo de regolito.'
+      message: 'Refuerza el refugio marciano.',
+      explanation: 'El regolito —la tierra de Marte— ayuda a proteger a la tripulación de la radiación.'
     },
     {
       id: 'dust',
@@ -108,7 +114,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 70,
       module: 'power_core',
       title: 'Polvo en los paneles',
-      message: 'Envía el rover a limpiar los paneles solares.'
+      message: 'Envía el rover a limpiar los paneles solares.',
+      explanation: 'El polvo cubre los paneles y reduce la electricidad que producen.'
     },
     {
       id: 'crew',
@@ -120,7 +127,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 35,
       module: 'life_support',
       title: 'Salud de la tripulación en riesgo',
-      message: 'Revisa los sistemas vitales de la base.'
+      message: 'Revisa el agua, el oxígeno y la energía.',
+      explanation: 'La salud de la tripulación depende de que los sistemas vitales funcionen.'
     }
   ].map((metric, order) => ({
     ...metric,

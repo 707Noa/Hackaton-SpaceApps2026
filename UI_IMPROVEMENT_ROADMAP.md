@@ -14,7 +14,7 @@ Hacer que la interfaz de Mars Outpost aproveche el espacio disponible en la pág
 
 ## Próximas mejoras, por prioridad
 
-### 1. Paneles contextuales y expandibles
+### 1. Paneles contextuales y expandibles ✅
 
 - Mantener visibles los indicadores esenciales y permitir ampliar cada sistema para consultar detalles.
 - Al elegir una alerta o edificio, enfocar el panel correspondiente sin perder de vista la base.
@@ -22,7 +22,7 @@ Hacer que la interfaz de Mars Outpost aproveche el espacio disponible en la pág
 
 **Listo cuando:** se puede pasar rápidamente del resumen a los detalles de un sistema y volver sin abrir varias ventanas.
 
-### 2. Cronología y previsión del próximo Sol
+### 2. Cronología y previsión del próximo Sol ✅
 
 - Añadir una línea de tiempo compacta con el Sol actual, eventos conocidos y respuestas pendientes de la Tierra.
 - Anticipar consumos y cambios que ya estén definidos por las reglas del juego; no presentar estimaciones como datos seguros.
@@ -30,7 +30,7 @@ Hacer que la interfaz de Mars Outpost aproveche el espacio disponible en la pág
 
 **Listo cuando:** el jugador puede revisar qué se aproxima y preparar sus recursos antes de avanzar.
 
-### 3. NOVA como copiloto contextual
+### 3. NOVA como copiloto contextual ✅
 
 - Dar recomendaciones breves según las alertas y el estado de los módulos.
 - Explicar la causa con el dato relevante, por ejemplo: “El polvo reduce la energía solar”.
@@ -38,7 +38,7 @@ Hacer que la interfaz de Mars Outpost aproveche el espacio disponible en la pág
 
 **Listo cuando:** cada recomendación se basa en el estado actual y conduce al panel relacionado.
 
-### 4. Retroalimentación clara de las acciones
+### 4. Retroalimentación clara de las acciones ✅
 
 - Mostrar cambios de recursos después de una acción, como `Agua -8` o `Oxígeno +18`.
 - Diferenciar éxito, advertencia y error con animaciones breves y mensajes consistentes.
@@ -46,7 +46,7 @@ Hacer que la interfaz de Mars Outpost aproveche el espacio disponible en la pág
 
 **Listo cuando:** después de cada acción se entiende qué cambió y por qué.
 
-### 5. Mapa interactivo de la base
+### 5. Mapa interactivo de la base ✅
 
 - Añadir nombres y estados breves al enfocar o seleccionar un edificio.
 - Permitir abrir el módulo asociado desde su indicador del mundo 3D.
@@ -54,7 +54,7 @@ Hacer que la interfaz de Mars Outpost aproveche el espacio disponible en la pág
 
 **Listo cuando:** se puede identificar el estado de un edificio y abrir su módulo directamente desde la escena.
 
-### 6. Revisión móvil y accesibilidad
+### 6. Revisión móvil y accesibilidad ✅
 
 - Reordenar HUD, recursos y controles para pantallas estrechas.
 - No depender únicamente del color: acompañar cada estado con texto o icono.

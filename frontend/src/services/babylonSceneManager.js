@@ -14,11 +14,19 @@ import {
 } from './pixelTextureFactory';
 import { getTelemetrySnapshot } from './telemetryStatus';
 
+const SYSTEM_BY_MODULE = {
+  power_core: 'power',
+  agrodome: 'agrodome',
+  life_support: 'life_support',
+  shield_system: 'shield'
+};
+
 export class BabylonSceneManager {
-  constructor(canvas, onModuleClick, onProximityChange) {
+  constructor(canvas, onModuleClick, onProximityChange, onMapTargetChange) {
     this.canvas = canvas;
     this.onModuleClick = onModuleClick;
     this.onProximityChange = onProximityChange;
+    this.onMapTargetChange = onMapTargetChange;
 
     const BAB = window.BABYLON;
     if (!BAB) {
@@ -48,8 +56,12 @@ export class BabylonSceneManager {
     // Keyboard & movement state
     this.keys = {};
     this.controlsEnabled = true;
+    this.reducedMotion = false;
     this.walkTime = 0;
     this.currentNearby = null;
+    this.currentMapTargetKey = null;
+    this.currentMapTarget = null;
+    this.systemStatuses = {};
     this.interactiveZones = [
       { module: 'agrodome', title: 'Invernadero Agrodome', x: -7.5, z: 6.5, radius: 5.0 },
       { module: 'agrodome', title: 'Invernadero Agrodome', x: -7.5, z: -6.5, radius: 5.0 },
@@ -520,10 +532,26 @@ export class BabylonSceneManager {
   initStatusBeacons() {
     const BAB = this.BAB;
     const beaconConfigs = {
-      power: new BAB.Vector3(-11.5, 2.8, 0),
-      agrodome: new BAB.Vector3(-7.5, 4.5, 6.5),
-      life_support: new BAB.Vector3(7.3, 4.8, 4.8),
-      shield: new BAB.Vector3(6.5, 3.0, -10.5)
+      power: {
+        position: new BAB.Vector3(-11.5, 2.8, 0),
+        module: 'power_core',
+        label: 'Energía: Estado de los paneles solares y las baterías.'
+      },
+      agrodome: {
+        position: new BAB.Vector3(-7.5, 4.5, 6.5),
+        module: 'agrodome',
+        label: 'Invernadero: Estado de los cultivos y las reservas de comida.'
+      },
+      life_support: {
+        position: new BAB.Vector3(7.3, 4.8, 4.8),
+        module: 'life_support',
+        label: 'Soporte vital: Estado del agua, el oxígeno y el aire.'
+      },
+      shield: {
+        position: new BAB.Vector3(6.5, 3.0, -10.5),
+        module: 'shield_system',
+        label: 'Refugio: Estado de la protección ante la radiación.'
+      }
     };
 
     this.statusBeaconColors = {
@@ -532,13 +560,13 @@ export class BabylonSceneManager {
       critical: new BAB.Color3(1.0, 0.16, 0.12)
     };
 
-    Object.entries(beaconConfigs).forEach(([system, position]) => {
+    Object.entries(beaconConfigs).forEach(([system, config]) => {
       const mesh = BAB.MeshBuilder.CreateSphere(`statusBeacon_${system}`, {
         diameter: 0.42,
         segments: 4
       }, this.scene);
-      mesh.position = position;
-      mesh.isPickable = false;
+      mesh.position = config.position;
+      mesh.metadata = { module: config.module, label: config.label };
 
       const material = new BAB.StandardMaterial(`statusBeaconMat_${system}`, this.scene);
       material.diffuseColor = this.statusBeaconColors.nominal;
@@ -719,15 +747,39 @@ export class BabylonSceneManager {
 
   initPicking() {
     this.scene.onPointerMove = (evt, pickInfo) => {
-      if (pickInfo.hit && pickInfo.pickedMesh && pickInfo.pickedMesh.metadata) {
+      const meta = pickInfo?.hit && pickInfo.pickedMesh?.metadata
+        ? pickInfo.pickedMesh.metadata
+        : null;
+
+      if (meta) {
         this.canvas.style.cursor = 'pointer';
       } else {
         this.canvas.style.cursor = 'default';
       }
+
+      const status = meta && SYSTEM_BY_MODULE[meta.module]
+        ? this.systemStatuses[SYSTEM_BY_MODULE[meta.module]]
+        : null;
+      const labelParts = meta?.label?.split(':') || [];
+      const target = meta ? {
+        module: meta.module,
+        title: labelParts[0],
+        description: labelParts.slice(1).join(':').trim(),
+        severity: status || null
+      } : null;
+      const targetKey = target
+        ? `${target.module}:${target.title}:${target.severity || ''}`
+        : null;
+
+      this.currentMapTarget = target;
+      if (targetKey !== this.currentMapTargetKey) {
+        this.currentMapTargetKey = targetKey;
+        this.onMapTargetChange?.(target);
+      }
     };
 
     this.scene.onPointerDown = (evt, pickInfo) => {
-      if (pickInfo.hit && pickInfo.pickedMesh && pickInfo.pickedMesh.metadata) {
+      if (pickInfo?.hit && pickInfo.pickedMesh?.metadata) {
         const meta = pickInfo.pickedMesh.metadata;
         if (this.onModuleClick) {
           this.onModuleClick(meta.module, meta.label);
@@ -771,6 +823,18 @@ export class BabylonSceneManager {
     if (!enabled) this.keys = {};
   }
 
+  setReducedMotion(enabled) {
+    this.reducedMotion = enabled;
+    if (this.dustSystem) {
+      if (enabled) this.dustSystem.stop();
+      else this.dustSystem.start();
+    }
+    if (enabled && this.roverAnim?.active) {
+      this.roverAnim.active = false;
+      this.roverGroup?.position?.set(3.8, 0, -6.5);
+    }
+  }
+
   zoomCamera(direction) {
     if (!this.camera) return;
 
@@ -785,6 +849,16 @@ export class BabylonSceneManager {
     if (!state) return;
 
     const { systemStatuses } = getTelemetrySnapshot(state);
+    this.systemStatuses = systemStatuses;
+    if (this.currentMapTarget && SYSTEM_BY_MODULE[this.currentMapTarget.module]) {
+      const severity = systemStatuses[SYSTEM_BY_MODULE[this.currentMapTarget.module]];
+      if (severity !== this.currentMapTarget.severity) {
+        this.currentMapTarget = { ...this.currentMapTarget, severity };
+        this.currentMapTargetKey = `${this.currentMapTarget.module}:${this.currentMapTarget.title}:${severity}`;
+        this.onMapTargetChange?.(this.currentMapTarget);
+      }
+    }
+
     Object.entries(this.statusBeacons).forEach(([system, beacon]) => {
       const severity = systemStatuses[system];
       beacon.severity = severity;
@@ -853,10 +927,20 @@ export class BabylonSceneManager {
     const isMoving = moveX !== 0 || moveZ !== 0;
 
     if (isMoving) {
-      const len = Math.hypot(moveX, moveZ);
-      const speed = 0.16;
-      const nx = (moveX / len) * speed;
-      const nz = (moveZ / len) * speed;
+      const cameraForward = this.camera.target.subtract(this.camera.position);
+      cameraForward.y = 0;
+      cameraForward.normalize();
+
+      const cameraRight = new this.BAB.Vector3(
+        cameraForward.z,
+        0,
+        -cameraForward.x
+      );
+      const movement = cameraRight.scale(moveX).add(cameraForward.scale(moveZ));
+      const len = movement.length();
+      const speed = 0.08;
+      const nx = (movement.x / len) * speed;
+      const nz = (movement.z / len) * speed;
 
       const nextX = Math.max(-15, Math.min(15, this.astronautGroup.position.x + nx));
       const nextZ = Math.max(-14, Math.min(14, this.astronautGroup.position.z + nz));
@@ -864,19 +948,28 @@ export class BabylonSceneManager {
       this.astronautGroup.position.z = nextZ;
 
       // Face direction of movement (visor faces -Z locally)
-      const targetAngle = Math.atan2(-moveX, -moveZ);
+      const targetAngle = Math.atan2(-nx, -nz);
       this.astronautGroup.rotation.y = targetAngle;
 
       // Walking animation
-      this.walkTime += 0.25;
-      this.astronautGroup.position.y = Math.abs(Math.sin(this.walkTime)) * 0.14;
-      if (this.astroLegs.left && this.astroLegs.right) {
+      if (this.reducedMotion) {
+        this.astronautGroup.position.y = 0;
+      } else {
+        this.walkTime += 0.25;
+        this.astronautGroup.position.y = Math.abs(Math.sin(this.walkTime)) * 0.14;
+      }
+      if (this.astroLegs.left && this.astroLegs.right && !this.reducedMotion) {
         this.astroLegs.left.rotation.x = Math.sin(this.walkTime) * 0.6;
         this.astroLegs.right.rotation.x = -Math.sin(this.walkTime) * 0.6;
+      } else if (this.reducedMotion && this.astroLegs.left && this.astroLegs.right) {
+        this.astroLegs.left.rotation.x = 0;
+        this.astroLegs.right.rotation.x = 0;
       }
     } else {
       // Idle pose
-      this.astronautGroup.position.y = Math.abs(Math.sin(Date.now() * 0.002)) * 0.06;
+      this.astronautGroup.position.y = this.reducedMotion
+        ? 0
+        : Math.abs(Math.sin(Date.now() * 0.002)) * 0.06;
       if (this.astroLegs.left && this.astroLegs.right) {
         this.astroLegs.left.rotation.x = 0;
         this.astroLegs.right.rotation.x = 0;
@@ -885,9 +978,9 @@ export class BabylonSceneManager {
 
     // Smooth camera follow
     const camTarget = new this.BAB.Vector3(
-      this.astronautGroup.position.x * 0.45,
+      this.astronautGroup.position.x * 0.2,
       0.5,
-      this.astronautGroup.position.z * 0.45
+      this.astronautGroup.position.z * 0.2
     );
     this.camera.target = this.BAB.Vector3.Lerp(this.camera.target, camTarget, 0.08);
 
@@ -921,21 +1014,25 @@ export class BabylonSceneManager {
     this.earth.scaling.setAll(earthDistance / this.earthReferenceDistance);
 
     Object.values(this.statusBeacons).forEach(({ mesh, severity }) => {
-      const pulse = severity === 'critical' ? 1 + (0.12 * (0.5 + 0.5 * Math.sin(t * 5))) : 1;
+      const pulse = !this.reducedMotion && severity === 'critical'
+        ? 1 + (0.12 * (0.5 + 0.5 * Math.sin(t * 5)))
+        : 1;
       mesh.scaling.setAll(pulse);
     });
 
     this.domeLights.forEach((light, i) => {
       const base = light.intensity > 1.5 ? 1.85 : 1.15;
-      light.intensity = base + Math.sin(t * 2.0 + i) * 0.15;
+      light.intensity = this.reducedMotion ? base : base + Math.sin(t * 2.0 + i) * 0.15;
     });
 
-    this.helperBots.forEach((b) => {
-      b.mesh.position.y = b.baseY + Math.sin(t * 1.5 + b.offset) * 0.12;
-      b.mesh.rotation.y += 0.015;
-    });
+    if (!this.reducedMotion) {
+      this.helperBots.forEach((b) => {
+        b.mesh.position.y = b.baseY + Math.sin(t * 1.5 + b.offset) * 0.12;
+        b.mesh.rotation.y += 0.015;
+      });
+    }
 
-    if (this.roverGroup && this.roverAnim.active) {
+    if (!this.reducedMotion && this.roverGroup && this.roverAnim.active) {
       this.roverAnim.phase += 0.018;
       const p = this.roverAnim.phase;
       if (p < Math.PI) {

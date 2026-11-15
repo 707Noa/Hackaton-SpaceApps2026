@@ -636,6 +636,42 @@ body {
   color: #FFF;
 }
 
+.map-target-card {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: min(230px, calc(100% - 96px));
+  padding: 8px;
+  background: rgba(8, 18, 27, 0.94);
+  border: 2px solid #38BDF8;
+  color: #E2E8F0;
+  pointer-events: none;
+}
+
+.map-target-card strong {
+  color: #F8FAFC;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.map-target-card > span {
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.map-target-card small {
+  color: #7DD3FC;
+  font-size: 7px;
+}
+
+.map-target-status.map-target-nominal { color: #6EE7B7; }
+.map-target-status.map-target-warning { color: #FCD34D; }
+.map-target-status.map-target-critical { color: #FCA5A5; }
+
 .proximity-prompt-btn {
   position: absolute;
   bottom: 48px;
@@ -771,6 +807,49 @@ body {
   .module-nav-tabs {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .dpad-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
+
+  .viewport-zoom-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .header-status-group .pixel-btn {
+    min-height: 40px;
+  }
+
+  .forecast-caption,
+  .forecast-note,
+  .forecast-orders,
+  .forecast-crew,
+  .nova-advisor-content p,
+  .action-feedback-message {
+    font-size: 10px;
+  }
+
+  .forecast-resource {
+    font-size: 9px;
+  }
+
+  .forecast-projected-value,
+  .nova-advisor-label,
+  .map-target-card small {
+    font-size: 8px;
+  }
+
+  .viewport-hint-bar {
+    flex-wrap: wrap;
+    padding: 6px;
+  }
+
+  .hint-text {
+    font-size: 9px;
+  }
 }
 
 .nav-tab-btn {
@@ -826,6 +905,26 @@ body {
   gap: 4px;
 }
 
+.res-card-trigger {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.res-card-trigger:focus-visible,
+.resource-detail-link:focus-visible {
+  outline: 3px solid #FDE68A;
+  outline-offset: 2px;
+}
+
 .res-card-top {
   display: flex;
   justify-content: space-between;
@@ -866,7 +965,39 @@ body {
   text-align: right;
 }
 
+.res-card-expand-hint {
+  align-self: flex-end;
+  color: #BAE6FD;
+  font-size: 7px;
+}
+
+.resource-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 8px;
+  border-top: 1px solid #4A1E27;
+  color: #CBD5E1;
+  font-size: 8px;
+  line-height: 1.6;
+}
+
+.resource-detail-recommendation {
+  color: #FCD34D;
+}
+
+.resource-detail-link {
+  align-self: flex-start;
+  padding: 4px 6px;
+  background: #1D4E89;
+  border: 1px solid #000;
+  color: #EFF6FF;
+  font: inherit;
+  cursor: pointer;
+}
+
 .gauge-bar-track {
+  display: block;
   width: 100%;
   height: 7px;
   background: #240C12;
@@ -875,6 +1006,7 @@ body {
 }
 
 .gauge-bar-fill {
+  display: block;
   height: 100%;
   transition: width 0.3s ease;
 }
@@ -1031,6 +1163,249 @@ body {
   border-color: #F87171;
   color: #FEF08A;
   font-weight: bold;
+}
+
+.sol-forecast-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: linear-gradient(135deg, #102031, #090305 72%);
+  border: 2px solid #1D4E89;
+}
+
+.sol-forecast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.sol-forecast-kicker,
+.forecast-estimate-badge {
+  color: #7DD3FC;
+  font-size: 7px;
+}
+
+.sol-forecast-header h3 {
+  margin-top: 4px;
+  color: #F8FAFC;
+  font-size: 11px;
+}
+
+.forecast-estimate-badge {
+  padding: 4px 6px;
+  border: 1px solid #0369A1;
+  white-space: nowrap;
+}
+
+.forecast-caption,
+.forecast-note,
+.forecast-orders {
+  color: #CBD5E1;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.forecast-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.forecast-resource {
+  display: grid;
+  gap: 3px;
+  padding: 6px;
+  background: rgba(9, 3, 5, 0.8);
+  border: 1px solid #3B1720;
+  color: #E2E8F0;
+  font-size: 8px;
+}
+
+.forecast-resource strong {
+  font-size: 10px;
+}
+
+.forecast-projected-value {
+  color: #94A3B8;
+  font-size: 7px;
+}
+
+.forecast-change-positive { color: #6EE7B7; }
+.forecast-change-negative { color: #FCA5A5; }
+.forecast-change-neutral { color: #CBD5E1; }
+
+.forecast-event {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px;
+  background: #24170A;
+  border-left: 3px solid #F59E0B;
+  color: #FDE68A;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.forecast-event span,
+.forecast-info-note {
+  color: #BAE6FD;
+}
+
+.forecast-positive-note {
+  color: #6EE7B7;
+  font-size: 8px;
+}
+
+.forecast-crew {
+  color: #E2E8F0;
+  font-size: 8px;
+}
+
+.forecast-risk-note {
+  color: #FCA5A5;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.forecast-orders {
+  padding-top: 6px;
+  border-top: 1px solid #1D4E89;
+}
+
+.nova-advisor {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: linear-gradient(135deg, #102031, #090305 82%);
+  border: 2px solid #0284C7;
+  box-shadow: 0 0 14px rgba(14, 165, 233, 0.16);
+}
+
+.nova-advisor-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  background: #082F49;
+  border: 1px solid #0EA5E9;
+  font-size: 15px;
+}
+
+.nova-advisor-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.nova-advisor-label {
+  color: #7DD3FC;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.nova-advisor-content h2 {
+  color: #F8FAFC;
+  font-size: 10px;
+}
+
+.nova-advisor-content p {
+  color: #CBD5E1;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.nova-advisor-link {
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  color: #7DD3FC;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 8px;
+  text-align: left;
+}
+
+.nova-advisor-link:hover,
+.nova-advisor-link:focus-visible {
+  color: #E0F2FE;
+  text-decoration: underline;
+}
+
+.action-feedback {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px;
+  background: #0B1720;
+  border: 2px solid #10B981;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+.action-feedback-warning {
+  border-color: #F59E0B;
+}
+
+.action-feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: #6EE7B7;
+  font-size: 8px;
+}
+
+.action-feedback-warning .action-feedback-header {
+  color: #FCD34D;
+}
+
+.action-feedback-close {
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  color: #CBD5E1;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.action-feedback-message {
+  color: #F8FAFC;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.action-feedback-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.action-feedback-changes span {
+  padding: 5px 6px;
+  background: #13232D;
+  color: #CBD5E1;
+  font-size: 8px;
+}
+
+.action-feedback-changes span {
+  border: 1px solid #274054;
+}
+
+.action-feedback-changes .feedback-change-positive strong { color: #6EE7B7; }
+.action-feedback-changes .feedback-change-negative strong { color: #FCA5A5; }
+
+.action-feedback-no-change {
+  color: #94A3B8;
+  font-size: 8px;
 }
 
 /* Communications Panel */
@@ -1257,9 +1632,13 @@ body {
 }
 
 .choice-card {
+  width: 100%;
   background: #2D141C;
   border: 3px solid #4A1E27;
   padding: 12px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   transition: all 0.1s ease;
 }
@@ -1268,6 +1647,40 @@ body {
   background: #3F1C27;
   border-color: var(--accent-gold);
   transform: translateX(4px);
+}
+
+.pixel-btn:focus-visible,
+.nav-tab-btn:focus-visible,
+.res-card-trigger:focus-visible,
+.dpad-btn:focus-visible,
+.viewport-zoom-btn:focus-visible,
+.proximity-prompt-btn:focus-visible,
+.resource-detail-link:focus-visible,
+.nova-advisor-link:focus-visible,
+.action-feedback-close:focus-visible {
+  outline: 3px solid var(--accent-gold);
+  outline-offset: 3px;
+}
+
+.choice-card:focus-visible {
+  border-color: var(--accent-gold);
+  outline: 3px solid var(--accent-gold);
+  outline-offset: 3px;
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
 }
 
 .nasa-source-box {

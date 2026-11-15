@@ -61,13 +61,35 @@ export default function ResourceDistributionPanel({ state, onSelectModule }) {
     {
       id: 'food',
       icon: '🌱',
-      name: 'Comida',
-      hint: 'Para comer',
+      name: 'Raciones',
+      hint: 'Comida guardada',
       val: resources.food,
       unit: '%',
       status: statusStyles[metrics.food.severity],
       metric: metrics.food,
       moduleLabel: 'Huerto'
+    },
+    {
+      id: 'hunger',
+      icon: '🍽️',
+      name: 'Hambre',
+      hint: 'Come para recuperarte',
+      val: state.hunger,
+      unit: '%',
+      status: statusStyles[metrics.hunger.severity],
+      metric: metrics.hunger,
+      moduleLabel: 'Huerto'
+    },
+    {
+      id: 'robot_battery',
+      icon: '🤖',
+      name: 'Batería del rover',
+      hint: 'Carga del robot',
+      val: state.robot.battery,
+      unit: '%',
+      status: statusStyles[metrics.robot_battery.severity],
+      metric: metrics.robot_battery,
+      moduleLabel: 'Paneles solares'
     },
     {
       id: 'shield',

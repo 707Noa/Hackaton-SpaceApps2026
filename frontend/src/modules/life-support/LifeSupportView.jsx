@@ -1,7 +1,9 @@
 ﻿import React from 'react';
+import { canIssueAction } from '../../services/gameEngine.js';
 
 export default function LifeSupportView({ state, onExecuteAction, onOpenNasaModal }) {
   const { resources, actionsRemaining } = state;
+  const actionAvailable = canIssueAction(state);
 
   return (
     <div className="module-panel pixel-box">
@@ -58,7 +60,7 @@ export default function LifeSupportView({ state, onExecuteAction, onOpenNasaModa
         <button
           className="pixel-btn pixel-btn-green"
           onClick={() => onExecuteAction('life_support', 'moxie')}
-          disabled={actionsRemaining <= 0 || resources.energy < 12}
+          disabled={!actionAvailable || resources.energy < 12}
         >
           O₂ Encender MOXIE
           <span className="action-cost">Cuesta 12⚡ · Hace +18 O₂</span>
@@ -67,7 +69,7 @@ export default function LifeSupportView({ state, onExecuteAction, onOpenNasaModa
         <button
           className="pixel-btn pixel-btn-cyan"
           onClick={() => onExecuteAction('life_support', 'recycle_water')}
-          disabled={actionsRemaining <= 0 || resources.energy < 8}
+          disabled={!actionAvailable || resources.energy < 8}
         >
           💧 Reciclar agua
           <span className="action-cost">Cuesta 8⚡ · Recupera +16💧</span>
@@ -76,7 +78,7 @@ export default function LifeSupportView({ state, onExecuteAction, onOpenNasaModa
         <button
           className="pixel-btn"
           onClick={() => onExecuteAction('life_support', 'scrub_co2')}
-          disabled={actionsRemaining <= 0 || resources.energy < 4}
+          disabled={!actionAvailable || resources.energy < 4}
         >
           🍃 Limpiar filtros de aire
           <span className="action-cost">Cuesta 4⚡ · Baja el CO₂ en 12</span>

@@ -1,6 +1,4 @@
-﻿// MARS OUTPOST: Master Game Data & NASA Scientific Knowledge Base
-// Conforms to NASA International Space Apps Challenge 2026 specifications
-// Designed intuitively for Junior Astronauts aged 7-12 years old
+﻿// MARS RANGERS: Game Data & NASA Science References
 
 export const MISSIONS_LIST = [
   {
@@ -75,7 +73,29 @@ export const MISSIONS_LIST = [
   }
 ];
 
+export const LAUNCH_PREPARATION_TASKS = [
+  {
+    id: 'seed-crop',
+    title: 'Sembrar el huerto',
+    detail: 'Usa agua y energía para iniciar la primera parcela.',
+    icon: '🌱'
+  },
+  {
+    id: 'clean-panels',
+    title: 'Limpiar los paneles',
+    detail: 'Envía el rover y empieza con energía solar limpia.',
+    icon: '🚜'
+  },
+  {
+    id: 'filter-air',
+    title: 'Revisar el aire',
+    detail: 'Enciende los filtros antes de salir a explorar.',
+    icon: '💨'
+  }
+];
+
 export const GARDEN_SIZE = 10;
+export const CROP_PLOT_COUNT = 3;
 
 export const MISSION_CHALLENGES = {
   m_plant: { game: 'plant', module: 'agrodome', action: 'plant', payload: { cropType: 'veggie_lettuce' } },
@@ -89,11 +109,14 @@ export const MISSION_CHALLENGES = {
 
 // Returns the pending mission challenge that guards a module action, if any.
 export function findChallengeForAction(state, moduleName, actionType) {
-  if (state.gameOver || state.victory || state.actionsRemaining <= 0) return null;
+  if (state.activeCrisis) return null;
+  const canStart = state.actionsRemaining > 0
+    || Boolean(state.activeCrisis && !state.activeCrisis.emergencyOrderUsed);
+  if (state.gameOver || state.victory || !canStart) return null;
   const done = state.completedMissions || [];
   const closingBunker = moduleName === 'shield_system' && actionType === 'toggle_bunker' && !state.bunkerActive;
   const entry = Object.entries(MISSION_CHALLENGES).find(([id, c]) => (
-    (!done.includes(id) || id === 'm_plant')
+    !done.includes(id)
     && ((c.module === moduleName && c.action === actionType)
       || (closingBunker && id === 'm_bunker'))
   ));
@@ -101,13 +124,14 @@ export function findChallengeForAction(state, moduleName, actionType) {
 }
 
 export const INITIAL_GAME_STATE = {
-  cadetName: 'Cadete Explorador',
+  cadetName: 'Explorador',
   sol: 1,
   totalSols: 7,
   isNight: false,
   roverTask: null,
   actionsRemaining: 2,
   maxActionsPerSol: 2,
+  hunger: 80,
   resources: {
     energy: 85,
     water: 80,
@@ -116,9 +140,14 @@ export const INITIAL_GAME_STATE = {
     food: 70
   },
   crew: {
-    count: 4,
+    count: 1,
     health: 100,
     status: 'Muy bien'
+  },
+  robot: {
+    battery: 100,
+    status: 'Listo',
+    emergencyRationAvailable: true
   },
   shield: 90,
   dust: 15,
@@ -126,12 +155,14 @@ export const INITIAL_GAME_STATE = {
   radiationDose: 0,
   emergencyRescueUsed: false,
   bunkerActive: false,
-  crops: {
+  cropPlots: Array.from({ length: CROP_PLOT_COUNT }, (_, index) => ({
+    id: index,
+    cropType: null,
     planted: false,
-    cropType: 'veggie_lettuce',
     stage: 0,
-    solsToHarvest: 0
-  },
+    solsToHarvest: 0,
+    drySols: 0
+  })),
   garden: Array(GARDEN_SIZE).fill(null),
   completedMissions: [],
   scienceProgress: 10,
@@ -144,7 +175,7 @@ export const INITIAL_GAME_STATE = {
       latencyMin: 14.2
     }
   ],
-  log: ['Sol 01: Puesto Horizonte Rojo activado en el Cráter Jezero.'],
+  log: ['Sol 01: Base Jezero lista para explorar.'],
   gameOver: false,
   victory: false
 };
@@ -227,7 +258,7 @@ export const SOL_EVENTS = [
     sol: 1,
     title: 'Sol 01: ¡Aterrizaje en el Cráter Jezero!',
     subtitle: 'Primer día en Marte',
-    description: '¡Llegaste sano y salvo a Marte con tus 4 astronautas! Antes de explorar, decide qué quieres priorizar hoy.',
+    description: '¡Aterrizaste en Jezero con tu rover! Elige la primera prioridad de la misión.',
     nasaSourceKey: 'meda',
     choices: [
       {
@@ -283,7 +314,7 @@ export const SOL_EVENTS = [
       {
         id: 'c3_b',
         text: '🌾 Cuidar las Reservas de Agua',
-        detail: 'Ahorras agua para la tripulación, aunque las plantas crecerán más lento.',
+        detail: 'Ahorras agua para el explorador, aunque las plantas crecerán más lento.',
         effects: { water: 3, energy: 2, food: -5 }
       }
     ]
@@ -292,7 +323,7 @@ export const SOL_EVENTS = [
     sol: 4,
     title: 'Sol 04: ¡Alerta de Tormenta Solar!',
     subtitle: 'Aviso urgente de NASA DONKI',
-    description: 'El Sol lanzó una nube de radiación hacia Marte. La tormenta durará dos Soles: prepara el búnker para mantener a salvo a la tripulación.',
+    description: 'El Sol lanzó una nube de radiación hacia Marte. La tormenta durará dos Soles: busca refugio en el búnker.',
     nasaSourceKey: 'donki',
     hazard: 'solar_radiation',
     choices: [
@@ -349,7 +380,7 @@ export const SOL_EVENTS = [
       {
         id: 'c6_b',
         text: '🔬 Mandar Solo al Rover con su Cámara',
-        detail: 'Es 100% seguro para los astronautas y gana +12 puntos de ciencia.',
+        detail: 'El rover explora sin poner en riesgo al explorador y gana +12 puntos de ciencia.',
         effects: { energy: -6 },
         scienceBoost: 12
       }
@@ -372,7 +403,7 @@ export const SOL_EVENTS = [
       {
         id: 'c7_b',
         text: '📦 Guardar Todo en la Base para el Relevo',
-        detail: 'Ahorra energía y agua para los astronautas que llegarán mañana.',
+        detail: 'Ahorra energía y agua para mantener la base lista.',
         effects: { energy: 5, water: 5 }
       }
     ]

@@ -24,7 +24,7 @@ export default function EventModal({ event, actionsRemaining = 2, onChooseOption
             </strong>
             <span>
               {event.hazard === 'solar_radiation'
-                ? `Tienes ${actionsRemaining} órdenes antes de cerrar este Sol. La radiación puede afectar la salud durante 2 Soles.`
+                ? `Tienes ${actionsRemaining} órdenes antes de cerrar este Sol. La radiación puede afectar al explorador durante 2 Soles.`
                 : 'Tienes este Sol para limpiar los paneles. Durante el temporal producirán menos energía.'}
             </span>
           </div>

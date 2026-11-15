@@ -36,8 +36,8 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 20,
       module: 'life_support',
       title: 'Aire bajo',
-      message: '¡El equipo necesita aire! Abre la máquina de oxígeno.',
-      explanation: 'Sin aire, ¡los astronautas no pueden respirar!'
+      message: 'El explorador necesita aire. Activa MOXIE.',
+      explanation: 'Sin aire, el explorador no puede respirar.'
     },
     {
       id: 'energy',
@@ -62,7 +62,7 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 20,
       module: 'life_support',
       title: 'Agua baja',
-      message: '¡El equipo necesita agua para beber y regar las plantas!',
+      message: 'El explorador necesita agua para beber y regar las plantas.',
       explanation: 'El agua es muy importante para beber y para el huerto.'
     },
     {
@@ -76,7 +76,7 @@ export function getTelemetrySnapshot(state) {
       module: 'life_support',
       title: 'Aire malo',
       message: '¡El aire está sucio! Enciende los filtros para limpiarlo.',
-      explanation: 'El aire sucio es malo para los astronautas. ¡Necesitamos limpiadores de aire!'
+      explanation: 'El aire sucio hace daño. Limpia los filtros.'
     },
     {
       id: 'food',
@@ -88,8 +88,34 @@ export function getTelemetrySnapshot(state) {
       criticalAt: 15,
       module: 'agrodome',
       title: 'Comida baja',
-      message: '¡El equipo tiene hambre! Cultiva más plantas en el huerto.',
-      explanation: 'Los astronautas necesitan comer para mantenerse fuertes.'
+      message: 'Quedan pocas raciones. Cosecha comida en el huerto.',
+      explanation: 'La comida guardada se consume al comer.'
+    },
+    {
+      id: 'hunger',
+      label: 'HAMBRE',
+      icon: '🍽️',
+      value: state.hunger,
+      direction: 'below',
+      warningAt: 35,
+      criticalAt: 15,
+      module: 'agrodome',
+      title: 'El explorador tiene hambre',
+      message: 'Come una ración o cosecha comida en el huerto.',
+      explanation: 'El hambre baja cada Sol. Comer usa comida guardada.'
+    },
+    {
+      id: 'robot_battery',
+      label: 'ROVER',
+      icon: '🤖',
+      value: state.robot.battery,
+      direction: 'below',
+      warningAt: 35,
+      criticalAt: 20,
+      module: 'power_core',
+      title: 'Batería del rover baja',
+      message: 'Deja que el rover recargue antes de enviarlo a limpiar.',
+      explanation: 'El rover necesita batería para limpiar los paneles y ayudar en una emergencia.'
     },
     {
       id: 'shield',
@@ -102,7 +128,7 @@ export function getTelemetrySnapshot(state) {
       module: 'shield_system',
       title: 'Protección débil',
       message: '¡La protección está baja! Refuerza el búnker de tierra marciana.',
-      explanation: 'El búnker protege a los astronautas de los rayos malos del Sol.'
+      explanation: 'El búnker protege al explorador de la radiación.'
     },
     {
       id: 'dust',
@@ -119,16 +145,16 @@ export function getTelemetrySnapshot(state) {
     },
     {
       id: 'crew',
-      label: 'ASTRONAUTAS',
+      label: 'EXPLORADOR',
       icon: '🧑‍🚀',
       value: crew.health,
       direction: 'below',
       warningAt: 60,
       criticalAt: 35,
       module: 'life_support',
-      title: 'Astronautas mal',
-      message: '¡Los astronautas no se sienten bien! Asegúrate de que todos los sistemas funcionen.',
-      explanation: 'Los astronautas están sanos si tienen aire, agua, comida y energía.'
+      title: 'El explorador necesita ayuda',
+      message: 'Revisa el aire, el agua, la energía y el hambre.',
+      explanation: 'El explorador necesita aire, agua, energía y comida.'
     }
   ].map((metric, order) => ({
     ...metric,
@@ -146,7 +172,7 @@ export function getTelemetrySnapshot(state) {
     module: state.activeHazard.type === 'solar_radiation' ? 'shield_system' : 'power_core',
     title: state.activeHazard.type === 'solar_radiation' ? 'Tormenta solar activa' : 'Tormenta de polvo activa',
     message: state.activeHazard.type === 'solar_radiation'
-      ? 'Cierra el búnker para proteger a la tripulación de la radiación.'
+      ? 'Cierra el búnker para proteger al explorador de la radiación.'
       : 'El polvo reduce la energía solar. Limpia los paneles con el rover.',
     order: -1
   } : null;
@@ -158,8 +184,8 @@ export function getTelemetrySnapshot(state) {
     metrics,
     alerts,
     systemStatuses: {
-      power: getWorstSeverity(severityById.energy, severityById.dust),
-      agrodome: getWorstSeverity(severityById.water, severityById.food),
+      power: getWorstSeverity(severityById.energy, severityById.dust, severityById.robot_battery),
+      agrodome: getWorstSeverity(severityById.water, severityById.food, severityById.hunger),
       life_support: getWorstSeverity(
         severityById.oxygen,
         severityById.co2,

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import SolForecastPanel from '../../components/SolForecastPanel';
+import { canIssueAction } from '../../services/gameEngine.js';
 
 export default function MissionControlView({
   state,
@@ -9,6 +10,7 @@ export default function MissionControlView({
 }) {
   const { sol, totalSols, crew, scienceProgress, earthComms, actionsRemaining } = state;
   const [commsInput, setCommsInput] = useState('');
+  const actionAvailable = canIssueAction(state);
 
   const handleSendQuery = (e) => {
     e.preventDefault();
@@ -57,8 +59,8 @@ export default function MissionControlView({
 
       <div className="metrics-row">
         <div className="metric-card">
-          <div className="metric-label">ASTRONAUTAS</div>
-          <div className="metric-value text-green">{crew.count}</div>
+          <div className="metric-label">EXPLORADOR + ROVER</div>
+          <div className="metric-value text-green">1 + 🤖</div>
           <div className="text-xs text-muted">Salud: {crew.health}%</div>
         </div>
 
@@ -100,12 +102,12 @@ export default function MissionControlView({
             placeholder="Escribe un mensaje a Houston..."
             value={commsInput}
             onChange={(e) => setCommsInput(e.target.value)}
-            disabled={actionsRemaining <= 0}
+            disabled={!actionAvailable}
           />
           <button
             type="submit"
             className="pixel-btn pixel-btn-cyan text-xs"
-            disabled={actionsRemaining <= 0 || !commsInput.trim()}
+            disabled={!actionAvailable || !commsInput.trim()}
           >
             Enviar
           </button>
@@ -122,6 +124,7 @@ export default function MissionControlView({
         <button
           className="pixel-btn pixel-btn-green advance-sol-btn"
           onClick={onAdvanceSol}
+          disabled={Boolean(state.activeCrisis || state.gameOver || state.victory)}
         >
           🚀 Siguiente Sol
         </button>

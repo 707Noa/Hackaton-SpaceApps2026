@@ -1,7 +1,9 @@
 ﻿import React from 'react';
+import { canIssueAction } from '../../services/gameEngine.js';
 
 export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaModal }) {
   const { shield, bunkerActive, resources, actionsRemaining } = state;
+  const actionAvailable = canIssueAction(state);
 
   return (
     <div className="module-panel pixel-box">
@@ -58,7 +60,7 @@ export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaMod
         <button
           className={`pixel-btn ${bunkerActive ? 'pixel-btn-green' : 'pixel-btn-gold'}`}
           onClick={() => onExecuteAction('shield_system', 'toggle_bunker')}
-          disabled={actionsRemaining <= 0 || (resources.energy < 6 && !bunkerActive)}
+          disabled={!actionAvailable || (resources.energy < 6 && !bunkerActive)}
         >
           {bunkerActive ? '🔓 Abrir el búnker' : '🛡️ Entrar al búnker'}
           <span className="action-cost">{bunkerActive ? 'Gratis' : 'Cuesta 6⚡ · Máxima protección'}</span>
@@ -67,7 +69,7 @@ export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaMod
         <button
           className="pixel-btn"
           onClick={() => onExecuteAction('shield_system', 'eva_expedition')}
-          disabled={actionsRemaining <= 0 || resources.oxygen < 6 || resources.water < 6 || bunkerActive}
+          disabled={!actionAvailable || resources.oxygen < 6 || resources.water < 6 || bunkerActive}
         >
           🥾 Salir a explorar el cráter
           <span className="action-cost">Cuesta 6 O₂ · 6💧 · +18 ciencia</span>
@@ -76,7 +78,7 @@ export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaMod
         <button
           className="pixel-btn"
           onClick={() => onExecuteAction('shield_system', 'reinforce_regolith')}
-          disabled={actionsRemaining <= 0 || resources.energy < 8}
+          disabled={!actionAvailable || resources.energy < 8}
         >
           🧱 Reforzar con tierra marciana
           <span className="action-cost">Cuesta 8⚡ · Escudo +15%</span>

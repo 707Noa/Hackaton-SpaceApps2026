@@ -1,11 +1,136 @@
-﻿// MARS OUTPOST: Core Simulation, Missions & Trade-off Engine
-// Tailored for Junior Astronauts (7-12 years old)
+// MARS RANGERS: Core Simulation, Missions & Trade-off Engine
 
-import { SOL_EVENTS, MISSIONS_LIST } from '../data/gameData.js';
+import { LAUNCH_PREPARATION_TASKS, SOL_EVENTS, MISSIONS_LIST } from '../data/gameData.js';
 import { sounds } from './audioService.js';
 
 export function clamp(val, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(val)));
+}
+
+export function prepareLaunchState(state, cadetName, taskId) {
+  if (!LAUNCH_PREPARATION_TASKS.some((task) => task.id === taskId)) {
+    throw new RangeError(`Preparación de lanzamiento desconocida: ${taskId}`);
+  }
+
+  const next = JSON.parse(JSON.stringify(state));
+  next.cadetName = cadetName?.trim() || 'Explorador';
+
+  if (taskId === 'seed-crop') {
+    if (next.resources.water < 8 || next.resources.energy < 6) {
+      throw new Error('Faltan agua y energía para preparar la primera parcela.');
+    }
+    next.resources.water = clamp(next.resources.water - 8);
+    next.resources.energy = clamp(next.resources.energy - 6);
+    next.cropPlots[0] = {
+      ...next.cropPlots[0],
+      cropType: 'veggie_lettuce',
+      planted: true,
+      stage: 1,
+      solsToHarvest: 2,
+      drySols: 0
+    };
+    next.log.push('Preparación: primera semilla plantada en el huerto.');
+  } else if (taskId === 'clean-panels') {
+    next.dust = 0;
+    next.roverTask = 'cleaning';
+    next.robot.battery = clamp(next.robot.battery - 20);
+    next.log.push('Preparación: el rover limpió los paneles solares.');
+  } else if (taskId === 'filter-air') {
+    next.resources.energy = clamp(next.resources.energy - 5);
+    next.resources.co2 = clamp(next.resources.co2 - 12);
+    next.log.push('Preparación: filtros de aire revisados.');
+  }
+
+  next.actionsRemaining = next.maxActionsPerSol;
+  next.sol = 1;
+  return next;
+}
+
+export const RESOURCE_GRACE_SECONDS = 8;
+
+const CRITICAL_RESOURCE_ORDER = ['energy', 'oxygen', 'water', 'hunger', 'co2'];
+
+function isResourceCritical(state, resource) {
+  if (resource === 'co2') return state.resources.co2 >= 100;
+  if (resource === 'hunger') return state.hunger <= 0;
+  return state.resources[resource] <= 0;
+}
+
+export function getZeroResource(state) {
+  return CRITICAL_RESOURCE_ORDER.find((resource) => isResourceCritical(state, resource)) || null;
+}
+
+export function canIssueAction(state) {
+  return state.actionsRemaining > 0
+    || Boolean(state.activeCrisis && !state.activeCrisis.emergencyOrderUsed);
+}
+
+export function beginResourceGrace(state) {
+  if (state.gameOver || state.victory || state.activeCrisis) return state;
+
+  const failedResources = state.failedCriticalResources || [];
+  const resource = CRITICAL_RESOURCE_ORDER.find((key) => (
+    isResourceCritical(state, key) && !failedResources.includes(key)
+  ));
+  if (!resource) return state;
+
+  return {
+    ...state,
+    activeCrisis: {
+      resource,
+      secondsRemaining: RESOURCE_GRACE_SECONDS,
+      emergencyOrderUsed: false
+    }
+  };
+}
+
+export function reconcileResourceCrisis(state) {
+  const unresolvedFailures = (state.failedCriticalResources || []).filter(
+    (resource) => isResourceCritical(state, resource)
+  );
+  const activeCrisis = state.activeCrisis
+    && isResourceCritical(state, state.activeCrisis.resource)
+    ? state.activeCrisis
+    : null;
+
+  if (
+    activeCrisis === state.activeCrisis
+    && unresolvedFailures.length === (state.failedCriticalResources || []).length
+  ) return state;
+
+  return {
+    ...state,
+    activeCrisis,
+    failedCriticalResources: unresolvedFailures
+  };
+}
+
+export function tickResourceGrace(state) {
+  const crisis = state.activeCrisis;
+  if (!crisis || state.gameOver || state.victory) return state;
+  if (!isResourceCritical(state, crisis.resource)) return reconcileResourceCrisis(state);
+  if (crisis.secondsRemaining > 1) {
+    return {
+      ...state,
+      activeCrisis: { ...crisis, secondsRemaining: crisis.secondsRemaining - 1 }
+    };
+  }
+
+  const next = JSON.parse(JSON.stringify(state));
+  next.activeCrisis = null;
+  next.failedCriticalResources = [...new Set([
+    ...(next.failedCriticalResources || []),
+    crisis.resource
+  ])];
+  next.crew.health = clamp(next.crew.health - 25);
+  next.crew.status = next.crew.health <= 35 ? 'Crítica' : 'En Alerta';
+  next.playerCollapsed = true;
+  if (next.crew.health <= 0) next.gameOver = true;
+  next.log.push(
+    `Sol 0${next.sol}: El sistema de ${crisis.resource} llegó a cero y el explorador se desplomó.`
+  );
+  sounds.playAlert();
+  return next;
 }
 
 function checkAndUnlockMission(nextState, missionId) {
@@ -29,11 +154,11 @@ export function executeModuleAction(state, moduleName, actionType, payload = {})
   const next = JSON.parse(JSON.stringify(state));
   const res = next.resources;
 
-  if (next.actionsRemaining <= 0) {
+  if (!canIssueAction(next)) {
     sounds.playAlert();
     return {
       nextState: state,
-      bubble: '¡Ya usaste tus 2 acciones de hoy! Presiona "Siguiente Sol" para avanzar al nuevo día.'
+      bubble: 'Ya usaste tus órdenes de hoy. Avanza al siguiente Sol para continuar.'
     };
   }
 
@@ -44,45 +169,95 @@ export function executeModuleAction(state, moduleName, actionType, payload = {})
   switch (moduleName) {
     case 'agrodome':
       if (actionType === 'plant') {
+        const plotIndex = Number.isInteger(payload.plotIndex)
+          ? payload.plotIndex
+          : next.cropPlots.findIndex((plot) => !plot.planted);
+        const plot = next.cropPlots[plotIndex];
+        if (!plot || plot.planted) {
+          sounds.playAlert();
+          return { nextState: state, bubble: 'Elige una parcela vacía para sembrar.' };
+        }
         if (res.water < 8 || res.energy < 6) {
           sounds.playAlert();
           return { nextState: state, bubble: '¡Faltan recursos! Necesitas 8 de Agua y 6 de Energía para sembrar.' };
         }
         res.water = clamp(res.water - 8);
         res.energy = clamp(res.energy - 6);
-        next.crops.planted = true;
-        next.crops.stage = 1;
-        next.crops.solsToHarvest = 2;
-        next.crops.cropType = payload.cropType || 'veggie_lettuce';
+        next.cropPlots[plotIndex] = {
+          ...plot,
+          planted: true,
+          stage: 1,
+          solsToHarvest: 2,
+          drySols: 0,
+          cropType: payload.cropType || 'veggie_lettuce'
+        };
         sounds.playWater();
-        bubbleMessage = '🌱 ¡Sembraste Lechuga Espacial! Estará lista para cosechar en 2 Soles.';
+        bubbleMessage = `🌱 ¡Sembraste en la parcela ${plotIndex + 1}! Estará lista en unos Soles.`;
         unlockedMissionId = 'm_plant';
         actionSuccess = true;
       } else if (actionType === 'harvest') {
-        if (next.crops.stage < 3) {
+        const plotIndex = Number.isInteger(payload.plotIndex)
+          ? payload.plotIndex
+          : next.cropPlots.findIndex((plot) => plot.planted && plot.stage >= 3);
+        const plot = next.cropPlots[plotIndex];
+        if (!plot || !plot.planted || plot.stage < 3) {
           sounds.playAlert();
-          return { nextState: state, bubble: 'Las plantas todavía están creciendo. ¡Espera un poco más!' };
+          return { nextState: state, bubble: 'Esa planta todavía no está lista para cosechar.' };
         }
         res.food = clamp(res.food + 25);
         res.oxygen = clamp(res.oxygen + 6);
-        next.crops.planted = false;
-        next.crops.stage = 0;
-        next.crops.solsToHarvest = 0;
+        next.cropPlots[plotIndex] = {
+          ...plot,
+          cropType: null,
+          planted: false,
+          stage: 0,
+          solsToHarvest: 0,
+          drySols: 0
+        };
         sounds.playHarvest();
-        bubbleMessage = '🎉 ¡Gran cosecha! Ganaste +25 Comida y +6 Oxígeno fresco.';
+        bubbleMessage = `🎉 ¡Cosechaste la parcela ${plotIndex + 1}! +25 comida y +6 oxígeno.`;
         actionSuccess = true;
       } else if (actionType === 'boost_light') {
+        const plotIndex = Number.isInteger(payload.plotIndex)
+          ? payload.plotIndex
+          : next.cropPlots.findIndex((crop) => crop.planted && crop.stage < 3);
+        const plot = next.cropPlots[plotIndex];
+        if (!plot || !plot.planted || plot.stage >= 3) {
+          sounds.playAlert();
+          return { nextState: state, bubble: 'Elige una planta que todavía esté creciendo.' };
+        }
         if (res.energy < 5) {
           sounds.playAlert();
           return { nextState: state, bubble: '¡Necesitas 5 de Energía para encender las luces LED!' };
         }
         res.energy = clamp(res.energy - 5);
-        if (next.crops.planted && next.crops.solsToHarvest > 1) {
-          next.crops.solsToHarvest = 1;
-          next.crops.stage = 2;
+        if (plot.solsToHarvest > 1) {
+          next.cropPlots[plotIndex] = { ...plot, solsToHarvest: 1, stage: 2 };
         }
         sounds.playPower();
-        bubbleMessage = '💡 ¡Luces LED encendidas! Tus lechugas crecerán mucho más rápido.';
+        bubbleMessage = `💡 ¡Luces LED para la parcela ${plotIndex + 1}! Crecerá más rápido.`;
+        actionSuccess = true;
+      } else if (actionType === 'eat') {
+        if (res.food < 12) {
+          if (next.hunger > 0 || !next.robot.emergencyRationAvailable) {
+            sounds.playAlert();
+            return { nextState: state, bubble: 'No quedan raciones. Cosecha comida en el huerto.' };
+          }
+          next.robot.emergencyRationAvailable = false;
+          next.hunger = clamp(next.hunger + 25);
+          sounds.playHarvest();
+          bubbleMessage = '🤖 ¡El rover compartió su ración de emergencia! Recuperaste algo de energía.';
+          actionSuccess = true;
+          break;
+        }
+        if (next.hunger >= 95) {
+          sounds.playAlert();
+          return { nextState: state, bubble: '¡Ya estás satisfecho! Guarda la comida para después.' };
+        }
+        res.food = clamp(res.food - 12);
+        next.hunger = clamp(next.hunger + 40);
+        sounds.playHarvest();
+        bubbleMessage = '🍽️ ¡Hora de comer! Usaste 12 raciones y recuperaste fuerzas.';
         actionSuccess = true;
       }
       break;
@@ -93,12 +268,30 @@ export function executeModuleAction(state, moduleName, actionType, payload = {})
           sounds.playAlert();
           return { nextState: state, bubble: '¡El rover necesita 10 de Energía de batería para salir!' };
         }
+        if (next.robot.battery < 25) {
+          sounds.playAlert();
+          return { nextState: state, bubble: 'El rover necesita recargar su batería antes de salir.' };
+        }
         res.energy = clamp(res.energy - 10);
+        next.robot.battery = clamp(next.robot.battery - 25);
         next.dust = 0;
         next.roverTask = 'cleaning';
         sounds.playRover();
         bubbleMessage = '🚜 ¡Rover en marcha! Limpió todo el polvo rojo de los paneles solares.';
         unlockedMissionId = 'm_clean';
+        actionSuccess = true;
+      } else if (actionType === 'emergency_power') {
+        if (next.activeCrisis?.resource !== 'energy') {
+          sounds.playAlert();
+          return { nextState: state, bubble: 'La batería de emergencia solo se usa cuando la energía llega a cero.' };
+        }
+        if (next.robot.battery < 20) {
+          sounds.playAlert();
+          return { nextState: state, bubble: 'El rover no tiene carga suficiente para compartir energía.' };
+        }
+        res.energy = clamp(res.energy + 18);
+        next.robot.battery = clamp(next.robot.battery - 20);
+        bubbleMessage = '🔋 ¡El rover compartió su batería! Recuperaste 18% de energía.';
         actionSuccess = true;
       } else if (actionType === 'night_saver') {
         next.isNight = !next.isNight;
@@ -120,7 +313,7 @@ export function executeModuleAction(state, moduleName, actionType, payload = {})
         res.oxygen = clamp(res.oxygen + 18);
         res.co2 = clamp(res.co2 - 4);
         sounds.playPower();
-        bubbleMessage = 'O₂ ¡MOXIE funcionó! Fabricaste +18 de Oxígeno puro para la tripulación.';
+        bubbleMessage = 'O₂ ¡MOXIE funcionó! Fabricaste +18 de oxígeno para el explorador.';
         unlockedMissionId = 'm_moxie';
         actionSuccess = true;
       } else if (actionType === 'recycle_water') {
@@ -169,7 +362,7 @@ export function executeModuleAction(state, moduleName, actionType, payload = {})
           next.bunkerActive = true;
           next.shield = clamp(next.shield + 20);
           sounds.playClick();
-          bubbleMessage = '🛡️ ¡Todos en el Búnker! La tierra roja de Marte protege a los astronautas.';
+          bubbleMessage = '🛡️ ¡Al búnker! La tierra marciana protege al explorador.';
           unlockedMissionId = 'm_bunker';
         } else {
           next.bunkerActive = false;
@@ -225,14 +418,18 @@ export function executeModuleAction(state, moduleName, actionType, payload = {})
   }
 
   if (actionSuccess) {
-    next.actionsRemaining -= 1;
+    if (next.actionsRemaining > 0) {
+      next.actionsRemaining -= 1;
+    } else {
+      next.activeCrisis.emergencyOrderUsed = true;
+    }
     let missionBanner = null;
     if (unlockedMissionId) {
       missionBanner = checkAndUnlockMission(next, unlockedMissionId);
     }
     next.log.push(`Sol 0${next.sol}: ${bubbleMessage}`);
     return {
-      nextState: next,
+      nextState: reconcileResourceCrisis(next),
       bubble: missionBanner || bubbleMessage
     };
   }
@@ -251,7 +448,8 @@ export function getDailyResourceChanges(state) {
     energy: solarGeneration - basePowerDraw,
     water: systemsHavePower ? -8 : -10,
     oxygen: systemsHavePower ? -7 : -10,
-    food: -7,
+    food: 0,
+    hunger: -18,
     co2: systemsHavePower ? 5 : 10,
     dust: 5,
     solarGeneration,
@@ -259,17 +457,17 @@ export function getDailyResourceChanges(state) {
   };
 }
 
-function getCrewHealthChange(resources) {
+function getCrewHealthChange(resources, hunger) {
   const vitalAtZero = resources.energy <= 0
     || resources.water <= 0
     || resources.oxygen <= 0
-    || resources.food <= 0;
+    || hunger <= 0;
   if (vitalAtZero || resources.co2 >= 60) return -20;
 
   const systemAtRisk = resources.energy < 15
     || resources.water < 20
     || resources.oxygen < 20
-    || resources.food < 20
+    || hunger < 20
     || resources.co2 > 25;
   return systemAtRisk ? -10 : 3;
 }
@@ -295,18 +493,22 @@ export function getNextSolForecast(state) {
     oxygen: clamp(state.resources.oxygen + dailyChanges.oxygen),
     food: clamp(state.resources.food + dailyChanges.food),
     co2: clamp(state.resources.co2 + dailyChanges.co2),
-    dust: clamp(state.dust + dailyChanges.dust)
+    dust: clamp(state.dust + dailyChanges.dust),
+    hunger: clamp(state.hunger + dailyChanges.hunger)
   };
-  const cropHarvest = state.crops.planted && state.crops.solsToHarvest <= 1;
-
-  if (cropHarvest) {
-    projectedResources.food = clamp(projectedResources.food + 25);
-    projectedResources.oxygen = clamp(projectedResources.oxygen + 6);
-  }
+  let waterRemaining = projectedResources.water;
+  let cropReadyCount = 0;
+  (state.cropPlots || []).forEach((plot) => {
+    if (!plot.planted || plot.stage >= 3 || waterRemaining < 2) return;
+    waterRemaining -= 2;
+    if (plot.solsToHarvest <= 1) cropReadyCount += 1;
+  });
+  projectedResources.water = clamp(waterRemaining);
+  const projectedHunger = projectedResources.hunger;
 
   const radiationImpact = getRadiationImpact(state);
   const projectedCrewHealth = clamp(
-    state.crew.health + getCrewHealthChange(projectedResources) - radiationImpact.healthLoss
+    state.crew.health + getCrewHealthChange(projectedResources, projectedHunger) - radiationImpact.healthLoss
   );
   const survivalRisk = projectedCrewHealth <= 0;
   const lastMessage = state.earthComms[state.earthComms.length - 1];
@@ -315,7 +517,11 @@ export function getNextSolForecast(state) {
     && lastMessage.sender.startsWith('Comandante')
     && lastMessage.sol === state.sol
   );
-  const currentResources = { ...state.resources, dust: state.dust };
+  const currentResources = {
+    ...state.resources,
+    dust: state.dust,
+    hunger: state.hunger
+  };
   const resourceDeltas = Object.fromEntries(
     Object.keys(projectedResources).map((key) => [
       key,
@@ -330,8 +536,10 @@ export function getNextSolForecast(state) {
     projectedResources,
     resourceDeltas,
     projectedCrewHealth,
+    projectedHunger,
     projectedRadiationDose: radiationImpact.dose,
-    cropHarvest,
+    cropHarvest: cropReadyCount > 0,
+    cropReadyCount,
     earthReplyPending,
     survivalRisk,
     upcomingEvent: survivalRisk ? null : SOL_EVENTS[state.sol] || null
@@ -339,7 +547,7 @@ export function getNextSolForecast(state) {
 }
 
 export function advanceSolState(state) {
-  if (state.gameOver || state.victory) {
+  if (state.gameOver || state.victory || state.activeCrisis) {
     return { nextState: state, nextEvent: null, bubble: null };
   }
 
@@ -354,25 +562,43 @@ export function advanceSolState(state) {
   res.oxygen = clamp(res.oxygen + dailyChanges.oxygen);
   res.food = clamp(res.food + dailyChanges.food);
   res.co2 = clamp(res.co2 + dailyChanges.co2);
+  next.hunger = clamp(next.hunger + dailyChanges.hunger);
 
   // Dust settles on panels
   next.dust = clamp(next.dust + dailyChanges.dust);
+  next.robot.battery = clamp(next.robot.battery + 15);
+  next.roverTask = null;
 
   // Crop progress
   let cropBubble = null;
-  if (next.crops.planted) {
-    next.crops.solsToHarvest -= 1;
-    if (next.crops.solsToHarvest === 1) {
-      next.crops.stage = 2;
-    } else if (next.crops.solsToHarvest <= 0) {
-      next.crops.stage = 3;
-      res.food = clamp(res.food + 25);
-      res.oxygen = clamp(res.oxygen + 6);
-      next.crops.planted = false;
-      sounds.playHarvest();
-      cropBubble = '🎉 ¡Tus lechugas crecieron! Cosechaste +25 Comida y +6 Oxígeno.';
+  const cropPlots = next.cropPlots.map((plot, index) => {
+    if (!plot.planted || plot.stage >= 3) return plot;
+    if (res.water >= 2) {
+      res.water = clamp(res.water - 2);
+      const solsToHarvest = Math.max(0, plot.solsToHarvest - 1);
+      const stage = solsToHarvest <= 0 ? 3 : solsToHarvest === 1 ? 2 : 1;
+      if (stage === 3 && !cropBubble) {
+        cropBubble = `🌱 ¡La parcela ${index + 1} está lista! Ve al huerto para cosecharla.`;
+      }
+      return { ...plot, stage, solsToHarvest, drySols: 0 };
     }
-  }
+
+    const drySols = (plot.drySols || 0) + 1;
+    if (drySols >= 2) {
+      if (!cropBubble) cropBubble = `🥀 La planta de la parcela ${index + 1} se secó por falta de agua.`;
+      return {
+        ...plot,
+        cropType: null,
+        planted: false,
+        stage: 0,
+        solsToHarvest: 0,
+        drySols: 0
+      };
+    }
+    if (!cropBubble) cropBubble = `💧 La parcela ${index + 1} necesita agua o la planta se secará.`;
+    return { ...plot, drySols };
+  });
+  next.cropPlots = cropPlots;
 
   // Earth auto-reply if cadet sent message on previous sol
   const lastMsg = next.earthComms[next.earthComms.length - 1];
@@ -389,15 +615,15 @@ export function advanceSolState(state) {
   next.actionsRemaining = next.maxActionsPerSol;
   next.sol += 1;
 
-  const healthChange = getCrewHealthChange(res);
+  const healthChange = getCrewHealthChange(res, next.hunger);
   next.crew.health = clamp(next.crew.health + healthChange);
   const radiationImpact = getRadiationImpact(state);
   next.radiationDose = radiationImpact.dose;
   if (radiationImpact.healthLoss > 0) {
     next.crew.health = clamp(next.crew.health - radiationImpact.healthLoss);
-    cropBubble = '☀️ ¡Radiación acumulada! La tripulación perdió salud. Cierra el búnker para el próximo Sol.';
+    cropBubble = '☀️ ¡Radiación acumulada! El explorador perdió salud. Cierra el búnker.';
   } else if (state.activeHazard?.type === 'solar_radiation' && state.bunkerActive) {
-    cropBubble = '🛡️ ¡El búnker de regolito protegió a toda la tripulación!';
+    cropBubble = '🛡️ ¡El búnker de regolito protegió al explorador!';
   }
 
   if (state.activeHazard?.remainingSols > 1) {
@@ -420,7 +646,7 @@ export function advanceSolState(state) {
     return {
       nextState: next,
       nextEvent: null,
-      bubble: '🚨 ¡La salud de la tripulación llegó a cero! Puedes activar el rescate de emergencia una vez.'
+      bubble: '🚨 ¡La salud del explorador llegó a cero! Puedes activar el rescate una vez.'
     };
   }
 
@@ -438,6 +664,11 @@ export function advanceSolState(state) {
 }
 
 export function applyChoiceToState(state, choice, hazard = null) {
+  if (state.gameOver || state.victory || !canIssueAction(state)) {
+    sounds.playAlert();
+    return state;
+  }
+
   const next = JSON.parse(JSON.stringify(state));
   const res = next.resources;
   const eff = choice.effects || {};
@@ -457,6 +688,7 @@ export function applyChoiceToState(state, choice, hazard = null) {
   if (choice.actionTrigger === 'clean_panels') {
     next.roverTask = 'cleaning';
     next.dust = 0;
+    next.robot.battery = clamp(next.robot.battery - 25);
   } else if (choice.actionTrigger === 'activate_bunker') {
     next.bunkerActive = true;
   }
@@ -467,8 +699,13 @@ export function applyChoiceToState(state, choice, hazard = null) {
     next.activeHazard = { type: hazard, remainingSols: 2 };
   }
 
+  if (next.actionsRemaining > 0) {
+    next.actionsRemaining -= 1;
+  } else {
+    next.activeCrisis.emergencyOrderUsed = true;
+  }
   next.log.push(`Sol 0${next.sol}: ${choice.text}`);
-  return next;
+  return reconcileResourceCrisis(next);
 }
 
 export function activateEmergencyRescue(state) {
@@ -507,7 +744,7 @@ export function generateReport(state) {
     Math.min(100, Math.round(avgResource * 0.6 + (missionsDone / 7) * 40) - rescuePenalty)
   );
 
-  let rank = 'Cadete Espacial Junior';
+  let rank = 'Ranger de Marte';
   if (totalScore >= 80) {
     rank = 'Comandante Supremo de Marte (Oro)';
   } else if (totalScore >= 60) {

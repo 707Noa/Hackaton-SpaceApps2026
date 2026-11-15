@@ -14,15 +14,25 @@ export default function TelemetryHUD({
 }) {
   const { sol, totalSols, crew, actionsRemaining, completedMissions = [] } = state;
   const { metrics, alerts } = getTelemetrySnapshot(state);
-  const quickMetrics = metrics.filter((metric) => ['energy', 'water', 'oxygen', 'co2'].includes(metric.id));
+  const quickMetrics = metrics.filter((metric) => ['energy', 'water', 'oxygen', 'co2', 'hunger'].includes(metric.id));
   const crewStatus = metrics.find((metric) => metric.id === 'crew');
   const activeAlert = alerts[0];
+  const crisisGuidance = {
+    oxygen: { label: 'Oxígeno', module: 'life_support', action: 'Activa MOXIE para fabricar aire.' },
+    water: { label: 'Agua', module: 'life_support', action: 'Abre el reciclador para recuperar agua.' },
+    energy: { label: 'Energía', module: 'power_core', action: 'Revisa la energía y activa el modo de ahorro.' },
+    food: { label: 'Comida', module: 'agrodome', action: 'Revisa el huerto y recupera provisiones.' },
+    co2: { label: 'Aire limpio', module: 'life_support', action: 'Limpia el filtro para bajar el CO₂.' }
+  };
+  const activeCrisis = state.activeCrisis
+    ? crisisGuidance[state.activeCrisis.resource]
+    : null;
 
   return (
     <header className="telemetry-header">
       <div className="telemetry-topbar pixel-box">
         <div className="brand-title">
-          <strong>MARS OUTPOST</strong>
+          <strong>MARS RANGERS</strong>
           <span className="location-badge">JEZERO · MARTE</span>
           <span className="sol-badge">SOL 0{sol} / 0{totalSols}</span>
         </div>
@@ -56,7 +66,9 @@ export default function TelemetryHUD({
             🧑‍🚀 SALUD {crew.health}%
           </span>
           <span className="actions-badge">
-            ÓRDENES: {actionsRemaining}/{state.maxActionsPerSol}
+            {actionsRemaining === 0 && state.activeCrisis && !state.activeCrisis.emergencyOrderUsed
+              ? '🚨 1 ORDEN DE EMERGENCIA'
+              : `ÓRDENES: ${actionsRemaining}/${state.maxActionsPerSol}`}
           </span>
 
           <button 
@@ -70,6 +82,7 @@ export default function TelemetryHUD({
           <button 
             className="pixel-btn pixel-btn-green text-xs"
             onClick={onAdvanceSol}
+            disabled={Boolean(state.activeCrisis || state.gameOver || state.victory)}
           >
             ☀️ SIGUIENTE SOL
           </button>
@@ -94,6 +107,21 @@ export default function TelemetryHUD({
           </button>
         </div>
       </div>
+
+      {activeCrisis && (
+        <div className="critical-crisis-banner" role="alert" aria-live="assertive">
+          <strong>🚨 ¡{activeCrisis.label} al límite!</strong>
+          <span>
+            {state.activeCrisis.secondsRemaining} s para actuar. {activeCrisis.action}
+          </span>
+          <button
+            className="critical-crisis-action"
+            onClick={() => onSelectModule(activeCrisis.module, activeCrisis.action)}
+          >
+            IR A {activeCrisis.module === 'life_support' ? 'AIRE / AGUA' : activeCrisis.module === 'power_core' ? 'ENERGÍA' : 'HUERTO'} →
+          </button>
+        </div>
+      )}
 
       <div
         className={`telemetry-alert-banner ${activeAlert ? `alert-${activeAlert.severity}` : 'alert-nominal'}`}
@@ -120,7 +148,7 @@ export default function TelemetryHUD({
         ) : (
           <>
             <span className="alert-banner-heading">SISTEMAS NOMINALES</span>
-            <span className="alert-banner-message">Recursos y tripulación dentro de rangos operativos.</span>
+            <span className="alert-banner-message">Explorador y sistemas estables.</span>
           </>
         )}
       </div>

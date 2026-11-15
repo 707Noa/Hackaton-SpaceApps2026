@@ -1,4 +1,4 @@
-// MARS OUTPOST: Retro 8-Bit Chiptune Sound Engine for React (Web Audio API)
+// MARS RANGERS: Retro 8-Bit Chiptune Sound Engine for React (Web Audio API)
 
 class SoundEngine {
   constructor() {

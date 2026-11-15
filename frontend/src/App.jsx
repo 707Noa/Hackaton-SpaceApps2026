@@ -11,7 +11,12 @@ import {
   advanceSolState,
   applyChoiceToState,
   activateEmergencyRescue,
-  generateReport
+  generateReport,
+  canIssueAction,
+  prepareLaunchState,
+  beginResourceGrace,
+  getZeroResource,
+  tickResourceGrace
 } from './services/gameEngine';
 
 import StartScene from './components/StartScene';
@@ -68,6 +73,41 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [gameStarted]);
 
+  useEffect(() => {
+    if (!gameStarted || gameState.gameOver || gameState.victory || gameState.activeCrisis) return;
+    const resource = getZeroResource(gameState);
+    if (!resource || gameState.failedCriticalResources?.includes(resource)) return;
+    setGameState((prev) => beginResourceGrace(prev));
+  }, [
+    gameStarted,
+    gameState.gameOver,
+    gameState.victory,
+    gameState.activeCrisis,
+    gameState.failedCriticalResources,
+    gameState.resources.energy,
+    gameState.resources.water,
+    gameState.resources.oxygen,
+    gameState.resources.food,
+    gameState.resources.co2,
+    gameState.hunger
+  ]);
+
+  useEffect(() => {
+    if (!gameState.activeCrisis) return undefined;
+    const timer = window.setInterval(() => {
+      setGameState((prev) => tickResourceGrace(prev));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [gameState.activeCrisis?.resource, gameState.gameOver, gameState.victory]);
+
+  useEffect(() => {
+    if (!gameState.playerCollapsed || gameState.gameOver) return undefined;
+    const timer = window.setTimeout(() => {
+      setGameState((prev) => (prev.gameOver ? prev : { ...prev, playerCollapsed: false }));
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [gameState.playerCollapsed, gameState.gameOver]);
+
   const showBubble = (text, duration = 4800) => {
     setSpeechBubble({ text, timer: Date.now() + duration });
   };
@@ -78,11 +118,13 @@ export default function App() {
       { key: 'water', label: 'Agua', icon: '💧' },
       { key: 'oxygen', label: 'Oxígeno', icon: 'O₂' },
       { key: 'food', label: 'Comida', icon: '🌱' },
+      { key: 'hunger', label: 'Hambre', icon: '🍽️' },
       { key: 'co2', label: 'CO₂', icon: '💨' },
       { key: 'dust', label: 'Polvo', icon: '🌪️' },
       { key: 'shield', label: 'Escudo', icon: '🛡️' },
       { key: 'health', label: 'Salud', icon: '🧑‍🚀' },
-      { key: 'radiationDose', label: 'Dosis de radiación', icon: '☢️' }
+      { key: 'radiationDose', label: 'Dosis de radiación', icon: '☢️' },
+      { key: 'robotBattery', label: 'Batería del rover', icon: '🤖' }
     ];
 
     return trackedResources
@@ -97,6 +139,8 @@ export default function App() {
   const getTrackedValue = (state, key) => {
     if (key === 'dust' || key === 'shield' || key === 'radiationDose') return state[key] || 0;
     if (key === 'health') return state.crew.health;
+    if (key === 'hunger') return state.hunger;
+    if (key === 'robotBattery') return state.robot.battery;
     return state.resources[key];
   };
 
@@ -110,17 +154,13 @@ export default function App() {
     });
   };
 
-  const handleStartGame = (name) => {
+  const handleStartGame = (name, preparationTask) => {
     sounds.playVictory();
     window.scrollTo(0, 0);
-    setGameState((prev) => ({
-      ...prev,
-      cadetName: name || 'Cadete Explorador',
-      sol: 1
-    }));
+    setGameState(prepareLaunchState(INITIAL_GAME_STATE, name, preparationTask));
     setGameStarted(true);
     setActiveEvent(SOL_EVENTS[0]);
-    showBubble(`¡Bienvenido Comandante ${name}! Muévete con WASD o Flechas por la base.`);
+    showBubble(`¡Bienvenido, ${name || 'Explorador'}! Tu rover está listo para ayudar.`);
   };
 
   const handleToggleMute = () => {
@@ -149,7 +189,12 @@ export default function App() {
   const handlePlayChallenge = (missionId) => {
     const config = MISSION_CHALLENGES[missionId];
     if (!config || gameState.completedMissions.includes(missionId)) return;
-    if (gameState.actionsRemaining <= 0) {
+    if (gameState.activeCrisis) {
+      sounds.playAlert();
+      showBubble('⏱️ Atiende primero la alerta urgente. No hay tiempo para el reto ahora.');
+      return;
+    }
+    if (!canIssueAction(gameState)) {
       sounds.playAlert();
       showBubble('¡Ya usaste tus 2 acciones de hoy! Presiona "Siguiente Sol" para jugar el reto.');
       return;
@@ -171,6 +216,7 @@ export default function App() {
   };
 
   const handleAdvanceSol = () => {
+    if (gameState.activeCrisis) return;
     sounds.playClick();
     const { nextState, nextEvent, bubble } = advanceSolState(gameState);
     setGameState(nextState);
@@ -185,6 +231,7 @@ export default function App() {
   const handleChooseEventOption = (choice) => {
     sounds.playClick();
     const nextState = applyChoiceToState(gameState, choice, activeEvent?.hazard);
+    if (nextState === gameState) return;
     setGameState(nextState);
     showActionFeedback(gameState, nextState, choice.text);
     setActiveEvent(null);
@@ -197,7 +244,7 @@ export default function App() {
     sounds.playPower();
     setGameState(nextState);
     setActiveEvent(nextState.victory ? null : SOL_EVENTS[nextState.sol - 1] || null);
-    showBubble('🚀 ¡Protocolo de rescate! La tripulación está estable. Se usaron 25 puntos de ciencia.');
+    showBubble('🚀 ¡Protocolo de rescate! El explorador está estable. Se usaron 25 puntos de ciencia.');
   };
 
   const handle3DModuleSelect = (moduleKey, message) => {
@@ -237,7 +284,7 @@ export default function App() {
 
   const report = gameState.victory || gameState.gameOver ? generateReport(gameState) : null;
 
-  // ESCENARIO 2: Interactive Mars Outpost Survival World
+  // Interactive Mars Rangers survival world
   return (
     <div className={`app-container mission-interface ${isReducedMotion ? 'reduce-motion' : ''}`}>
       <TelemetryHUD
@@ -261,7 +308,7 @@ export default function App() {
             state={gameState}
             onModuleClick={handle3DModuleSelect}
             speechBubble={speechBubble}
-            controlsEnabled={!hasModalOpen && !gameState.bunkerActive}
+            controlsEnabled={!hasModalOpen && !gameState.bunkerActive && !gameState.playerCollapsed && !gameState.gameOver}
             reducedMotion={isReducedMotion}
           />
 

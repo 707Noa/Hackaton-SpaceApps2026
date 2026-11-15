@@ -1,15 +1,23 @@
-﻿import React from 'react';
+import React from 'react';
+import { canIssueAction } from '../../services/gameEngine.js';
+
+const cropStatus = (plot) => {
+  if (!plot.planted) return 'Parcela libre';
+  if (plot.stage >= 3) return 'Lista para cosechar';
+  if (plot.drySols > 0) return 'Necesita agua';
+  return plot.stage === 1 ? 'Brotando' : 'Creciendo';
+};
 
 export default function AgrodomeView({ state, onExecuteAction, onOpenNasaModal }) {
-  const { crops, resources, actionsRemaining } = state;
-  const isReady = crops.stage >= 3;
+  const { cropPlots, resources, actionsRemaining } = state;
+  const actionAvailable = canIssueAction(state);
 
   return (
     <div className="module-panel pixel-box">
       <div className="module-header">
         <div>
           <span className="module-tag">INVERNADERO</span>
-          <h2 className="module-title">Huerto Espacial</h2>
+          <h2 className="module-title">Huerto y comida</h2>
         </div>
         <button
           className="pixel-btn pixel-btn-cyan text-xs"
@@ -20,80 +28,87 @@ export default function AgrodomeView({ state, onExecuteAction, onOpenNasaModal }
       </div>
 
       <p className="module-desc">
-        Marte no tiene tierra fértil. La NASA cultiva plantas con agua y luces LED rojas y azules.
+        Cuida cada parcela. Las plantas necesitan agua; cuando estén listas, cosecha para guardar comida.
       </p>
 
-      <div className="crop-bed-container">
-        <div className="crop-slot">
-          <div className="crop-icon-large">
-            {!crops.planted && crops.stage === 0 && '🟫'}
-            {crops.planted && crops.stage === 1 && '🌱'}
-            {crops.planted && crops.stage === 2 && '🌿'}
-            {crops.stage >= 3 && '🥗'}
-          </div>
-          <div className="crop-details">
-            <div className="crop-name">
-              {crops.cropType === 'veggie_lettuce' ? 'Lechuga espacial' : 'Papa marciana'}
+      <div className="crop-plots-grid">
+        {cropPlots.map((plot, index) => (
+          <article className={`crop-plot-card ${plot.stage >= 3 ? 'crop-plot-ready' : ''}`} key={plot.id}>
+            <div className="crop-plot-heading">
+              <strong>Parcela {index + 1}</strong>
+              <span>{cropStatus(plot)}</span>
             </div>
-            <div className="crop-status-line">
-              Estado: <strong>
-                {!crops.planted && crops.stage === 0 && 'Maceta vacía: ¡a sembrar!'}
-                {crops.planted && crops.stage === 1 && 'Brotando'}
-                {crops.planted && crops.stage === 2 && 'Creciendo rápido'}
-                {crops.stage >= 3 && '¡Lista para cosechar!'}
-              </strong>
+            <div className="crop-plot-plant" aria-hidden="true">
+              {!plot.planted && '🟫'}
+              {plot.planted && plot.stage === 1 && '🌱'}
+              {plot.planted && plot.stage === 2 && '🌿'}
+              {plot.planted && plot.stage >= 3 && '🥬'}
             </div>
-            {crops.planted && (
-              <div className="progress-bar-wrap">
-                <div
-                  className="progress-bar-fill fill-green"
-                  style={{ width: `${Math.min(100, (3 - crops.solsToHarvest) * 33.3)}%` }}
-                />
+            {plot.planted && plot.stage < 3 && (
+              <div className="crop-plot-progress">
+                <span style={{ width: `${Math.min(100, (3 - plot.solsToHarvest) * 33.3)}%` }} />
               </div>
             )}
-            {crops.planted && (
-              <div className="text-xs text-muted">
-                Faltan {crops.solsToHarvest} Sol(es) para cosechar
-              </div>
+            {plot.planted && plot.stage < 3 && (
+              <small>
+                {plot.drySols > 0
+                  ? 'Si sigue seca, la planta se marchitará.'
+                  : `Crece en ${plot.solsToHarvest} Sol(es)`}
+              </small>
             )}
-          </div>
+            {!plot.planted && (
+              <button
+                className="pixel-btn pixel-btn-green"
+                onClick={() => onExecuteAction('agrodome', 'plant', {
+                  plotIndex: index,
+                  cropType: 'veggie_lettuce'
+                })}
+                disabled={!actionAvailable || resources.water < 8 || resources.energy < 6}
+              >
+                🌱 Sembrar
+                <span className="action-cost">8💧 · 6⚡</span>
+              </button>
+            )}
+            {plot.planted && plot.stage >= 3 && (
+              <button
+                className="pixel-btn pixel-btn-gold"
+                onClick={() => onExecuteAction('agrodome', 'harvest', { plotIndex: index })}
+                disabled={!actionAvailable}
+              >
+                🧺 Cosechar
+                <span className="action-cost">+25 comida · +6 O₂</span>
+              </button>
+            )}
+            {plot.planted && plot.stage < 3 && (
+              <button
+                className="pixel-btn"
+                onClick={() => onExecuteAction('agrodome', 'boost_light', { plotIndex: index })}
+                disabled={!actionAvailable || resources.energy < 5}
+              >
+                💡 Acelerar crecimiento
+                <span className="action-cost">5⚡</span>
+              </button>
+            )}
+          </article>
+        ))}
+      </div>
+
+      <div className="hunger-action-card">
+        <div>
+          <strong>🍽️ Hambre: {state.hunger}%</strong>
+          <span>Comida guardada: {resources.food}%</span>
         </div>
+        <button
+          className="pixel-btn pixel-btn-cyan"
+          onClick={() => onExecuteAction('agrodome', 'eat')}
+          disabled={!actionAvailable || resources.food < 12 || state.hunger >= 95}
+        >
+          🍽️ Comer una ración
+          <span className="action-cost">−12 comida · +40 hambre</span>
+        </button>
       </div>
 
-      <div className="module-actions-grid">
-        {!crops.planted && crops.stage === 0 && (
-          <button
-            className="pixel-btn pixel-btn-green"
-            onClick={() => onExecuteAction('agrodome', 'plant', { cropType: 'veggie_lettuce' })}
-            disabled={actionsRemaining <= 0 || resources.water < 8 || resources.energy < 6}
-          >
-            🌱 Sembrar lechuga
-            <span className="action-cost">Cuesta 8💧 · 6⚡</span>
-          </button>
-        )}
-
-        {isReady && (
-          <button
-            className="pixel-btn pixel-btn-gold"
-            onClick={() => onExecuteAction('agrodome', 'harvest')}
-            disabled={actionsRemaining <= 0}
-          >
-            🎉 Cosechar (+25 comida · +6 O₂)
-            <span className="action-cost">Lo ganas al instante</span>
-          </button>
-        )}
-
-        {crops.planted && !isReady && (
-          <button
-            className="pixel-btn"
-            onClick={() => onExecuteAction('agrodome', 'boost_light')}
-            disabled={actionsRemaining <= 0 || resources.energy < 5}
-          >
-            💡 Encender luces LED
-            <span className="action-cost">Cuesta 5⚡ · Crece más rápido</span>
-          </button>
-        )}
-      </div>
+      <div className="text-xs text-muted">Órdenes disponibles: {actionsRemaining}/{state.maxActionsPerSol}</div>
     </div>
   );
 }

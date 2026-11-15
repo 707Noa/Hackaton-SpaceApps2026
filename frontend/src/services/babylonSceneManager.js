@@ -1,4 +1,4 @@
-// MARS OUTPOST: Babylon.js 3D Pixel-Art Jezero Simulation Engine
+// MARS RANGERS: Babylon.js 3D Pixel-Art Jezero Simulation Engine
 // Features:
 // - 16-bit procedural pixel textures & hardware pixel scaling
 // - Keyboard movement (WASD / Arrow keys) for the Junior Astronaut with walk animation
@@ -59,6 +59,8 @@ export class BabylonSceneManager {
     this.keys = {};
     this.controlsEnabled = true;
     this.reducedMotion = false;
+    this.playerCollapseTarget = 0;
+    this.playerCollapseIntensity = 0;
     this.isNight = false;
     this.powerFailure = false;
     this.activeHazard = null;
@@ -101,7 +103,8 @@ export class BabylonSceneManager {
     this.initKeyboard();
 
     this.engine.runRenderLoop(() => {
-      this.update();
+      const deltaSeconds = Math.min(this.engine.getDeltaTime() / 1000, 0.05);
+      this.update(deltaSeconds);
       this.scene.render();
     });
 
@@ -1035,6 +1038,7 @@ export class BabylonSceneManager {
         -Math.cos(this.astronautGroup.rotation.y)
       );
       this.fpCamera.rotation.x = 0.1;
+      this.syncFirstPersonCamera();
       this.fpCamera.attachControl(this.canvas, true);
       this.scene.activeCamera = this.fpCamera;
     } else {
@@ -1192,8 +1196,9 @@ export class BabylonSceneManager {
       }
     }
 
-    const stage = state.crops ? state.crops.stage : 0;
-    const isPlanted = state.crops ? state.crops.planted : false;
+    const cropPlots = state.cropPlots || [];
+    const stage = cropPlots.reduce((maxStage, plot) => Math.max(maxStage, plot.stage), 0);
+    const isPlanted = cropPlots.some((plot) => plot.planted);
     this.cropMeshes.forEach((plant) => {
       if (!isPlanted && stage === 0) {
         plant.scaling.set(0.4, 0.2, 0.4);
@@ -1234,6 +1239,7 @@ export class BabylonSceneManager {
     }
 
     this.astronautGroup?.setEnabled(!state.bunkerActive);
+    this.playerCollapseTarget = state.playerCollapsed || state.gameOver ? 1 : 0;
 
     if (state.roverTask === 'cleaning' && !this.roverAnim.active) {
       this.roverAnim.active = true;
@@ -1241,8 +1247,28 @@ export class BabylonSceneManager {
     }
   }
 
-  updatePlayerMovement() {
-    if (!this.astronautGroup || !this.controlsEnabled) return;
+  updatePlayerMovement(deltaSeconds = 1 / 60) {
+    if (!this.astronautGroup) return;
+
+    const cameraFollowAlpha = 1 - Math.exp(-7.5 * deltaSeconds);
+    const collapseStep = this.reducedMotion ? 1 : 1 - Math.exp(-9 * deltaSeconds);
+    this.playerCollapseIntensity += (
+      this.playerCollapseTarget - this.playerCollapseIntensity
+    ) * collapseStep;
+    const collapseIntensity = this.playerCollapseIntensity;
+    this.astronautGroup.rotation.z = -collapseIntensity * 1.1;
+    this.astronautGroup.position.y = -collapseIntensity * 0.45;
+    if (this.fpCamera) this.fpCamera.rotation.z = -collapseIntensity * 0.35;
+
+    if (this.perspective === 'first') this.syncFirstPersonCamera();
+    if (this.playerCollapseTarget > 0.01 || !this.controlsEnabled) {
+      if (this.perspective !== 'first') {
+        const focus = this.cameraFocus.position;
+        focus.x += (this.astronautGroup.position.x - focus.x) * cameraFollowAlpha;
+        focus.z += (this.astronautGroup.position.z - focus.z) * cameraFollowAlpha;
+      }
+      return;
+    }
 
     let moveX = 0;
     let moveZ = 0;
@@ -1252,14 +1278,18 @@ export class BabylonSceneManager {
     if (this.keys['KeyA'] || this.keys['ArrowLeft']) moveX -= 1;
     if (this.keys['KeyD'] || this.keys['ArrowRight']) moveX += 1;
 
-    const isMoving = moveX !== 0 || moveZ !== 0;
+    const hasMovementInput = moveX !== 0 || moveZ !== 0;
+    let isMoving = false;
 
-    if (isMoving) {
-      const cameraForward = this.perspective === 'first'
-        ? new this.BAB.Vector3(Math.sin(this.fpCamera.rotation.y), 0, Math.cos(this.fpCamera.rotation.y))
-        : this.camera.getTarget().subtract(this.camera.position);
-      cameraForward.y = 0;
-      cameraForward.normalize();
+    if (hasMovementInput) {
+      const movementYaw = this.perspective === 'first'
+        ? this.fpCamera.rotation.y
+        : -this.camera.alpha - Math.PI / 2;
+      const cameraForward = new this.BAB.Vector3(
+        Math.sin(movementYaw),
+        0,
+        Math.cos(movementYaw)
+      );
 
       const cameraRight = new this.BAB.Vector3(
         cameraForward.z,
@@ -1268,50 +1298,47 @@ export class BabylonSceneManager {
       );
       const movement = cameraRight.scale(moveX).add(cameraForward.scale(moveZ));
       const len = movement.length();
-      const speed = 0.08;
-      const nx = (movement.x / len) * speed;
-      const nz = (movement.z / len) * speed;
+      if (len > 0) {
+        const speed = 3;
+        const distance = speed * deltaSeconds;
+        const nx = (movement.x / len) * distance;
+        const nz = (movement.z / len) * distance;
+        const curX = this.astronautGroup.position.x;
+        const curZ = this.astronautGroup.position.z;
+        const nextX = Math.max(-38, Math.min(38, curX + nx));
+        const nextZ = Math.max(-38, Math.min(38, curZ + nz));
 
-      const curX = this.astronautGroup.position.x;
-      const curZ = this.astronautGroup.position.z;
-      const nextX = Math.max(-38, Math.min(38, curX + nx));
-      const nextZ = Math.max(-38, Math.min(38, curZ + nz));
+        if (!this.checkCollisionWithObstacles(nextX, nextZ)) {
+          this.astronautGroup.position.x = nextX;
+          this.astronautGroup.position.z = nextZ;
+        } else if (!this.checkCollisionWithObstacles(nextX, curZ)) {
+          this.astronautGroup.position.x = nextX;
+        } else if (!this.checkCollisionWithObstacles(curX, nextZ)) {
+          this.astronautGroup.position.z = nextZ;
+        }
 
-      if (!this.checkCollisionWithObstacles(nextX, nextZ)) {
-        this.astronautGroup.position.x = nextX;
-        this.astronautGroup.position.z = nextZ;
-      } else if (!this.checkCollisionWithObstacles(nextX, curZ)) {
-        this.astronautGroup.position.x = nextX;
-      } else if (!this.checkCollisionWithObstacles(curX, nextZ)) {
-        this.astronautGroup.position.z = nextZ;
-      }
+        const movedX = this.astronautGroup.position.x - curX;
+        const movedZ = this.astronautGroup.position.z - curZ;
+        isMoving = Math.hypot(movedX, movedZ) > 0.0001;
 
-      // Face direction of movement (visor faces -Z locally)
-      if (this.perspective !== 'first') {
-        this.astronautGroup.rotation.y = Math.atan2(-nx, -nz);
+        if (isMoving && this.perspective !== 'first') {
+          this.astronautGroup.rotation.y = Math.atan2(-movedX, -movedZ);
+        }
       }
+    }
 
-      // Walking animation
-      if (this.reducedMotion) {
-        this.astronautGroup.position.y = 0;
-      } else {
-        this.walkTime += 0.25;
-        this.astronautGroup.position.y = Math.abs(Math.sin(this.walkTime)) * 0.14;
+    if (isMoving) {
+      this.walkTime += deltaSeconds * 7.5;
+      this.astronautGroup.position.y = this.reducedMotion
+        ? 0
+        : Math.abs(Math.sin(this.walkTime)) * 0.14;
+      if (this.astroLegs.left && this.astroLegs.right) {
+        this.astroLegs.left.rotation.x = this.reducedMotion ? 0 : Math.sin(this.walkTime) * 0.6;
+        this.astroLegs.right.rotation.x = this.reducedMotion ? 0 : -Math.sin(this.walkTime) * 0.6;
       }
-      if (this.astroLegs.left && this.astroLegs.right && !this.reducedMotion) {
-        this.astroLegs.left.rotation.x = Math.sin(this.walkTime) * 0.6;
-        this.astroLegs.right.rotation.x = -Math.sin(this.walkTime) * 0.6;
-      } else if (this.reducedMotion && this.astroLegs.left && this.astroLegs.right) {
-        this.astroLegs.left.rotation.x = 0;
-        this.astroLegs.right.rotation.x = 0;
-      }
-      // Arm swing animation
-      if (this.astroArms && !this.reducedMotion) {
-        this.astroArms.left.rotation.x = -Math.sin(this.walkTime) * 0.5;
-        this.astroArms.right.rotation.x = Math.sin(this.walkTime) * 0.5;
-      } else if (this.reducedMotion && this.astroArms) {
-        this.astroArms.left.rotation.x = 0;
-        this.astroArms.right.rotation.x = 0;
+      if (this.astroArms) {
+        this.astroArms.left.rotation.x = this.reducedMotion ? 0 : -Math.sin(this.walkTime) * 0.5;
+        this.astroArms.right.rotation.x = this.reducedMotion ? 0 : Math.sin(this.walkTime) * 0.5;
       }
     } else {
       // Idle pose
@@ -1322,6 +1349,10 @@ export class BabylonSceneManager {
         this.astroLegs.left.rotation.x = 0;
         this.astroLegs.right.rotation.x = 0;
       }
+      if (this.astroArms) {
+        this.astroArms.left.rotation.x = 0;
+        this.astroArms.right.rotation.x = 0;
+      }
     }
 
     // The world stays still: the third-person camera only translates with the player
@@ -1329,17 +1360,12 @@ export class BabylonSceneManager {
     const playerPos = this.astronautGroup.position;
     if (this.perspective === 'first') {
       const yaw = this.fpCamera.rotation.y;
-      this.fpCamera.rotation.x = Math.max(-0.9, Math.min(0.9, this.fpCamera.rotation.x));
-      this.fpCamera.position.set(
-        playerPos.x + Math.sin(yaw) * 0.3,
-        1.75,
-        playerPos.z + Math.cos(yaw) * 0.3
-      );
       this.astronautGroup.rotation.y = Math.atan2(-Math.sin(yaw), -Math.cos(yaw));
+      this.syncFirstPersonCamera();
     } else {
       const focus = this.cameraFocus.position;
-      focus.x += (playerPos.x - focus.x) * 0.12;
-      focus.z += (playerPos.z - focus.z) * 0.12;
+      focus.x += (playerPos.x - focus.x) * cameraFollowAlpha;
+      focus.z += (playerPos.z - focus.z) * cameraFollowAlpha;
     }
 
     this.updateRoomVisibility(playerPos);
@@ -1365,6 +1391,22 @@ export class BabylonSceneManager {
     }
   }
 
+  syncFirstPersonCamera() {
+    if (!this.fpCamera || !this.astronautGroup) return;
+    const helmet = this.scene.getMeshByName('astroHelmet');
+    helmet?.computeWorldMatrix(true);
+    const headPosition = helmet
+      ? helmet.getAbsolutePosition()
+      : this.astronautGroup.position.add(new this.BAB.Vector3(0, 1.8, 0));
+    const yaw = this.fpCamera.rotation.y;
+    this.fpCamera.position.set(
+      headPosition.x + Math.sin(yaw) * 0.12,
+      headPosition.y,
+      headPosition.z + Math.cos(yaw) * 0.12
+    );
+    this.fpCamera.rotation.x = Math.max(-0.9, Math.min(0.9, this.fpCamera.rotation.x));
+  }
+
   updateRoomVisibility(playerPos) {
     this.rooms.forEach((room) => {
       const inside = playerPos.x > room.minX && playerPos.x < room.maxX
@@ -1378,10 +1420,10 @@ export class BabylonSceneManager {
     });
   }
 
-  update() {
+  update(deltaSeconds = 1 / 60) {
     const t = Date.now() * 0.003;
 
-    this.updatePlayerMovement();
+    this.updatePlayerMovement(deltaSeconds);
 
     const stormTarget = this.activeHazard?.type === 'dust_storm' ? 1 : 0;
     const stormStep = this.reducedMotion ? 1 : 0.025;

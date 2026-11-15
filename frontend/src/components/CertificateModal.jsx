@@ -15,9 +15,9 @@ export default function CertificateModal({
             🚨 MISIÓN EN EMERGENCIA
           </div>
           <div className="modal-desc">
-            La salud de la tripulación llegó a cero. La escasez de recursos y la radiación pueden acumularse con cada Sol.<br /><br />
+            La salud del explorador llegó a cero. La escasez de recursos y la radiación pueden acumularse con cada Sol.<br /><br />
             {rescueAvailable
-              ? 'Puedes usar las reservas de emergencia una sola vez. Recuperarás a la tripulación, pero perderás 25 puntos de ciencia y 10 puntos de supervivencia.'
+              ? 'Puedes usar las reservas de emergencia una sola vez. El explorador se recuperará, pero perderás 25 puntos de ciencia y 10 puntos de supervivencia.'
               : 'El protocolo de rescate ya fue utilizado. Revisa tus decisiones y vuelve a intentarlo.'}
           </div>
           {rescueAvailable && (
@@ -40,12 +40,12 @@ export default function CertificateModal({
       <div className="modal-content" style={{ maxWidth: '700px' }}>
         <div className="certificate-frame">
           <div style={{ fontSize: '11px', color: '#92400E', marginBottom: '4px' }}>
-            NASA INTERNATIONAL SPACE APPS CHALLENGE
+            MARS RANGERS · CRÁTER JEZERO
           </div>
           <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#78350F', letterSpacing: '1px' }}>
-            DIPLOMA OFICIAL DE COMANDANTE JUNIOR
+            DIPLOMA DE EXPLORADOR
           </div>
-          <div style={{ fontSize: '13px', margin: '8px 0' }}>Se certifica que el explorador:</div>
+          <div style={{ fontSize: '13px', margin: '8px 0' }}>Misión completada por:</div>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#B45309', borderBottom: '2px dashed #B45309', paddingBottom: '4px', margin: '8px 0' }}>
             {report.cadetName.toUpperCase()}
           </div>
@@ -68,7 +68,7 @@ export default function CertificateModal({
           </div>
 
           <div style={{ fontSize: '10px', color: '#78350F', marginTop: '8px' }}>
-            Puesto Avanzado Jezero Crater · Misión Horizonte Rojo · 7 Soles Completados
+            Base Jezero · 7 soles explorados
           </div>
         </div>
 

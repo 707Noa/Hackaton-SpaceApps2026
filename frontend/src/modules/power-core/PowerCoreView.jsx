@@ -1,8 +1,9 @@
 import React from 'react';
-import { getDailyResourceChanges } from '../../services/gameEngine.js';
+import { canIssueAction, getDailyResourceChanges } from '../../services/gameEngine.js';
 
 export default function PowerCoreView({ state, onExecuteAction, onOpenNasaModal }) {
-  const { resources, dust, isNight, actionsRemaining, roverTask } = state;
+  const { resources, dust, isNight, roverTask, robot } = state;
+  const actionAvailable = canIssueAction(state);
   const dailyChanges = getDailyResourceChanges(state);
   const energyBalance = dailyChanges.energy;
 
@@ -55,6 +56,13 @@ export default function PowerCoreView({ state, onExecuteAction, onOpenNasaModal 
             {dust > 35 ? '⚠️ ¡Muy sucios! Manda al rover' : 'Todo bien'}
           </div>
         </div>
+        <div className="metric-card">
+          <div className="metric-label">BATERÍA DEL ROVER</div>
+          <div className={`metric-value ${robot.battery < 25 ? 'text-red' : 'text-green'}`}>
+            {robot.battery}%
+          </div>
+          <div className="text-xs text-muted">Recarga 15% al cerrar cada Sol</div>
+        </div>
       </div>
 
       <div className="dust-indicator-wrap">
@@ -74,16 +82,27 @@ export default function PowerCoreView({ state, onExecuteAction, onOpenNasaModal 
         <button
           className="pixel-btn pixel-btn-gold"
           onClick={() => onExecuteAction('power_core', 'clean_panels')}
-          disabled={actionsRemaining <= 0 || resources.energy < 10 || roverTask === 'cleaning'}
+          disabled={!actionAvailable || resources.energy < 10 || robot.battery < 25 || roverTask === 'cleaning'}
         >
           🚜 Mandar al rover a limpiar
-          <span className="action-cost">Cuesta 10⚡ · Paneles como nuevos</span>
+          <span className="action-cost">10⚡ · 25% rover · Paneles como nuevos</span>
         </button>
+
+        {resources.energy <= 0 && (
+          <button
+            className="pixel-btn pixel-btn-gold"
+            onClick={() => onExecuteAction('power_core', 'emergency_power')}
+            disabled={!actionAvailable || state.activeCrisis?.resource !== 'energy' || robot.battery < 20}
+          >
+            🔋 Usar batería de emergencia
+            <span className="action-cost">Rover −20% · Energía +18%</span>
+          </button>
+        )}
 
         <button
           className={`pixel-btn ${isNight ? 'pixel-btn-green' : ''}`}
           onClick={() => onExecuteAction('power_core', 'night_saver')}
-          disabled={actionsRemaining <= 0}
+          disabled={!actionAvailable}
         >
           {isNight ? '☀️ Volver al modo día' : '🌙 Modo ahorro de noche'}
           <span className="action-cost">La base gasta solo 8⚡</span>

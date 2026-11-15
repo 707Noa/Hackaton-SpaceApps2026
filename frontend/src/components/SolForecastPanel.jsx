@@ -5,7 +5,8 @@ const forecastMetrics = [
   { id: 'energy', label: 'Energía', icon: '⚡' },
   { id: 'water', label: 'Agua', icon: '💧' },
   { id: 'oxygen', label: 'Oxígeno', icon: 'O₂' },
-  { id: 'food', label: 'Comida', icon: '🌱' },
+  { id: 'food', label: 'Raciones', icon: '🌱' },
+  { id: 'hunger', label: 'Hambre', icon: '🍽️' },
   { id: 'co2', label: 'CO₂', icon: '💨' },
   { id: 'dust', label: 'Polvo', icon: '🌪️' }
 ];
@@ -59,7 +60,7 @@ export default function SolForecastPanel({ state }) {
 
       {forecast.cropHarvest && (
         <p className="forecast-positive-note">
-          🎉 ¡Habrá cosecha: más comida y aire!
+          🌱 {forecast.cropReadyCount} parcela(s) estarán listas. Cosecha para guardar comida.
         </p>
       )}
 
@@ -96,15 +97,15 @@ export default function SolForecastPanel({ state }) {
           <span>
             {state.activeHazard.type === 'solar_radiation'
               ? state.bunkerActive
-                ? 'El equipo está a salvo en el búnker.'
-                : 'La radiación enferma al equipo. ¡Cierra el búnker!'
+                ? 'El explorador está a salvo en el búnker.'
+                : 'La radiación afecta al explorador. ¡Cierra el búnker!'
               : 'Los paneles dan menos energía por ahora.'}
           </span>
         </div>
       )}
 
       <p className="forecast-crew">
-        🧑‍🚀 Salud del equipo: {state.crew.health}% → {forecast.projectedCrewHealth}%
+        🧑‍🚀 Salud del explorador: {state.crew.health}% → {forecast.projectedCrewHealth}%
       </p>
 
       {state.activeHazard?.type === 'solar_radiation' && !state.bunkerActive && (

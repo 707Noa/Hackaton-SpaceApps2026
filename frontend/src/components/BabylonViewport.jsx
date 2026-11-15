@@ -102,7 +102,7 @@ export default function BabylonViewport({
           </strong>
           <span>
             {state.activeHazard.type === 'solar_radiation'
-              ? state.bunkerActive ? 'Tripulación protegida en el búnker' : 'Cierra el búnker antes de terminar el Sol'
+              ? state.bunkerActive ? 'Explorador protegido en el búnker' : 'Cierra el búnker antes de terminar el Sol'
               : 'Paneles solares afectados · Revisa el rover'}
           </span>
         </div>

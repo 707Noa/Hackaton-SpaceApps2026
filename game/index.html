@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MARS OUTPOST: Horizonte Rojo · Entrenador de Misiones Junior</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div id="game-container">
+    
+    <!-- Top HUD Bar -->
+    <header class="hud-bar pixel-box">
+      <div class="hud-title">🪐 MARS OUTPOST: HORIZONTE ROJO</div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span id="sol-text" class="sol-badge">SOL 01 / 07</span>
+        <button id="btn-mute" class="pixel-btn" style="font-size: 8px; padding: 4px 6px;">🔊 AUDIO</button>
+      </div>
+    </header>
+
+    <!-- 6 Resources Gauges Grid -->
+    <section class="resources-grid">
+      <!-- Energy -->
+      <div class="res-card">
+        <div class="res-header">
+          <span>⚡ ENERGÍA</span>
+          <span id="val-energy" class="res-val">85%</span>
+        </div>
+        <div class="res-meter-bg">
+          <div id="fill-energy" class="res-meter-fill" style="width: 85%;"></div>
+        </div>
+      </div>
+
+      <!-- Water -->
+      <div class="res-card">
+        <div class="res-header">
+          <span>💧 AGUA</span>
+          <span id="val-water" class="res-val">75%</span>
+        </div>
+        <div class="res-meter-bg">
+          <div id="fill-water" class="res-meter-fill" style="width: 75%;"></div>
+        </div>
+      </div>
+
+      <!-- Oxygen -->
+      <div class="res-card">
+        <div class="res-header">
+          <span>🫁 OXÍGENO</span>
+          <span id="val-oxygen" class="res-val">90%</span>
+        </div>
+        <div class="res-meter-bg">
+          <div id="fill-oxygen" class="res-meter-fill" style="width: 90%;"></div>
+        </div>
+      </div>
+
+      <!-- Food -->
+      <div class="res-card">
+        <div class="res-header">
+          <span>🌱 COMIDA</span>
+          <span id="val-food" class="res-val">65%</span>
+        </div>
+        <div class="res-meter-bg">
+          <div id="fill-food" class="res-meter-fill" style="width: 65%;"></div>
+        </div>
+      </div>
+
+      <!-- Shield -->
+      <div class="res-card">
+        <div class="res-header">
+          <span>🛡️ ESCUDO</span>
+          <span id="val-shield" class="res-val">90%</span>
+        </div>
+        <div class="res-meter-bg">
+          <div id="fill-shield" class="res-meter-fill" style="width: 90%;"></div>
+        </div>
+      </div>
+
+      <!-- Dust -->
+      <div class="res-card">
+        <div class="res-header">
+          <span>🧹 POLVO</span>
+          <span id="val-dust" class="res-val">15%</span>
+        </div>
+        <div class="res-meter-bg">
+          <div id="fill-dust" class="res-meter-fill" style="width: 15%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2D Pixel Art Viewport Canvas -->
+    <div id="canvas-wrapper">
+      <canvas id="game-canvas" width="800" height="350"></canvas>
+      <div class="canvas-hint">🎮 Haz clic en los módulos, paneles o astronautas para interactuar</div>
+    </div>
+
+    <!-- Commander Actions Bar -->
+    <footer class="actions-container">
+      <div class="action-buttons">
+        <button id="btn-plant" class="pixel-btn">🌱 CULTIVAR</button>
+        <button id="btn-clean" class="pixel-btn">🚜 LIMPIAR POLVO</button>
+        <button id="btn-moxie" class="pixel-btn">🫁 MOXIE (O2)</button>
+        <button id="btn-recycle" class="pixel-btn">💧 RECICLAR AGUA</button>
+        <button id="btn-bunker" class="pixel-btn">🛡️ BÚNKER</button>
+        <button id="btn-comms" class="pixel-btn">📡 TIERRA</button>
+      </div>
+      <div>
+        <button id="btn-advance" class="pixel-btn pixel-btn-gold">▶ SIGUIENTE SOL</button>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- MODAL: Start Screen -->
+  <div id="modal-start" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">🚀 MISIÓN CRÁTER JEZERO · MARTE</div>
+        <div class="sol-badge">NASA SPACE APPS 2026</div>
+      </div>
+      <div class="modal-desc">
+        ¡Saludos, Comandante! Eres el líder del puesto avanzado en Marte. 
+        Tu misión es mantener con vida a los 4 astronautas durante 7 Soles.<br><br>
+        Cada decisión que tomes cuesta recursos: si gastas energía en el rover, cuidas los paneles, pero tendrás menos luz para el invernadero.<br><br>
+        ¿Listo para el desafío de ingeniería espacial?
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <label style="font-size: 10px; color: var(--accent-gold);">NOMBRE DEL COMANDANTE JUNIOR:</label>
+        <input id="input-cadet-name" type="text" placeholder="Ejemplo: Mateo" value="Cadete Explorador" 
+               style="padding: 10px; background: #0B0F19; border: 3px solid #334155; color: #FFF; font-family: 'Press Start 2P'; font-size: 11px;">
+      </div>
+      <button id="btn-start-game" class="pixel-btn pixel-btn-gold" style="padding: 14px; font-size: 12px;">
+        COMENZAR MISIÓN EN MARTE
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: Sol Daily Event -->
+  <div id="modal-event" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <div id="event-title" class="modal-title">TÍTULO DEL EVENTO</div>
+          <div id="event-subtitle" style="font-size: 8px; color: #94A3B8; margin-top: 4px;">SUBTÍTULO</div>
+        </div>
+      </div>
+      
+      <div id="event-desc" class="modal-desc">DESCRIPCIÓN DEL INCIDENTE</div>
+
+      <div id="event-choices" class="choice-list">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+        <button id="btn-open-nasa" class="pixel-btn pixel-btn-green" style="font-size: 9px;">
+          🔬 ORIGEN DEL DATO (NASA)
+        </button>
+        <span style="font-size: 8px; color: #94A3B8;">Elige una opción para continuar</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NASA Scientific Knowledge Base -->
+  <div id="modal-nasa" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 580px;">
+      <div class="modal-header">
+        <div id="nasa-modal-title" class="modal-title" style="color: #6EE7B7;">CIENCIA REAL DE LA NASA</div>
+        <span id="nasa-badge" class="sol-badge" style="background: #047857; color: #FFF;">DATO OFICIAL</span>
+      </div>
+      <div id="nasa-text" class="nasa-source-box">
+        <!-- Injected via JS -->
+      </div>
+      <button id="btn-close-nasa" class="pixel-btn" style="align-self: flex-end;">
+        ENTENDIDO, VOLVER A LA MISIÓN
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: Victory / Debriefing Certificate -->
+  <div id="modal-victory" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="certificate-frame">
+        <div style="font-size: 12px; color: #92400E; margin-bottom: 4px;">NASA INTERNATIONAL SPACE APPS CHALLENGE</div>
+        <div class="cert-header">DIPLOMA OFICIAL DE COMANDANTE JUNIOR</div>
+        <div style="font-size: 14px; margin: 8px 0;">Se certifica que el explorador:</div>
+        <div id="cert-cadet-name" class="cert-name">CADETE</div>
+        <div id="cert-rank" style="font-size: 15px; font-weight: bold; color: #78350F; margin: 6px 0;">COMANDANTE DE HONOR</div>
+        <div id="cert-score" style="font-size: 13px; color: #B45309;">Puntuación de Supervivencia: 92%</div>
+        
+        <div style="font-size: 13px; margin-top: 14px; font-weight: bold;">INSIGNIAS DE MÉRITO ALCANZADAS:</div>
+        <div id="cert-badges" class="badges-container">
+          <!-- Injected via JS -->
+        </div>
+
+        <div style="font-size: 10px; color: #78350F; margin-top: 10px;">
+          Puesto Avanzado Jezero Crater · Misión Horizonte Rojo · 7 Soles Completados
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; gap: 10px; margin-top: 12px;">
+        <button id="btn-print-cert" class="pixel-btn pixel-btn-gold">🖨️ IMPRIMIR / GUARDAR</button>
+        <button id="btn-restart-victory" class="pixel-btn">🔄 JUGAR OTRA VEZ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Game Over / Evacuation -->
+  <div id="modal-gameover" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="border-color: #EF4444;">
+      <div class="modal-header">
+        <div class="modal-title" style="color: #EF4444;">🚨 EVACUACIÓN DE EMERGENCIA</div>
+      </div>
+      <div class="modal-desc">
+        ¡Un recurso vital ha llegado a cero!<br><br>
+        La tripulación ha tenido que abordar el módulo de ascenso de emergencia. En el espacio, ningún recurso puede descuidarse.<br><br>
+        ¡Aprende de este intento y vuelve a intentarlo!
+      </div>
+      <button id="btn-restart-gameover" class="pixel-btn pixel-btn-gold">
+        🔄 REINTENTAR MISIÓN
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Game Script Entry Point -->
+  <script type="module" src="js/main.js"></script>
+
+</body>
+</html>

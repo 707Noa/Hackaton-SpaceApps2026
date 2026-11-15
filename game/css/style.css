@@ -1,0 +1,373 @@
+/* MARS OUTPOST: Authentic 16-Bit Pixel Art Game CSS */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Chakra+Petch:wght@500;700&display=swap');
+
+:root {
+  --bg-dark: #0B0F19;
+  --bg-card: #151D2E;
+  --pixel-border: #334155;
+  --mars-red: #E24A3B;
+  --mars-ochre: #C86D3B;
+  --accent-gold: #FBBF24;
+  --accent-cyan: #38BDF8;
+  --accent-green: #10B981;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-font-smoothing: none;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: #F8FAFC;
+  font-family: 'Press Start 2P', monospace;
+  overflow-x: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Retro Pixel Borders */
+.pixel-box {
+  background: var(--bg-card);
+  border: 4px solid #000;
+  box-shadow: 
+    inset -4px -4px 0px #0F172A,
+    inset 4px 4px 0px #334155,
+    0 4px 0px #000;
+}
+
+.pixel-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  padding: 10px 14px;
+  background: #1E293B;
+  color: #F8FAFC;
+  border: 3px solid #000;
+  box-shadow: 
+    inset -3px -3px 0px #0F172A,
+    inset 3px 3px 0px #475569,
+    0 3px 0px #000;
+  cursor: pointer;
+  transition: transform 0.05s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pixel-btn:hover {
+  background: #334155;
+}
+
+.pixel-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 
+    inset -1px -1px 0px #0F172A,
+    inset 1px 1px 0px #475569;
+}
+
+.pixel-btn-gold {
+  background: #D97706;
+  color: #FFF;
+  box-shadow: 
+    inset -3px -3px 0px #78350F,
+    inset 3px 3px 0px #FDE68A,
+    0 3px 0px #000;
+}
+.pixel-btn-gold:hover {
+  background: #F59E0B;
+}
+
+.pixel-btn-green {
+  background: #059669;
+  color: #FFF;
+  box-shadow: 
+    inset -3px -3px 0px #064E3B,
+    inset 3px 3px 0px #A7F3D0,
+    0 3px 0px #000;
+}
+.pixel-btn-green:hover {
+  background: #10B981;
+}
+
+/* App Header & HUD */
+#game-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 10px auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hud-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #111827;
+  border: 3px solid #000;
+}
+
+.hud-title {
+  font-size: 13px;
+  color: var(--accent-gold);
+}
+
+.sol-badge {
+  font-size: 11px;
+  background: #7C2D12;
+  color: #FEF08A;
+  padding: 4px 8px;
+  border: 2px solid #000;
+}
+
+/* Resources Grid */
+.resources-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.res-card {
+  background: #0F172A;
+  border: 2px solid #000;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.res-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  color: #94A3B8;
+}
+
+.res-val {
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.res-meter-bg {
+  width: 100%;
+  height: 8px;
+  background: #1E293B;
+  border: 1px solid #000;
+  overflow: hidden;
+}
+
+.res-meter-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* Canvas Viewport */
+#canvas-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  border: 4px solid #000;
+  box-shadow: 0 4px 0px #000;
+  background: #000;
+  overflow: hidden;
+}
+
+#game-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.canvas-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  font-size: 8px;
+  color: #FDE68A;
+  background: rgba(15, 23, 42, 0.85);
+  padding: 4px 8px;
+  border: 1px solid #000;
+  pointer-events: none;
+}
+
+/* Actions Bar */
+.actions-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: #111827;
+  border: 3px solid #000;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 640px;
+  background: #151D2E;
+  border: 5px solid #000;
+  box-shadow: 
+    inset -4px -4px 0px #0B0F19,
+    inset 4px 4px 0px #334155,
+    0 8px 0px #000;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #334155;
+  padding-bottom: 10px;
+}
+
+.modal-title {
+  font-size: 13px;
+  color: var(--accent-gold);
+  line-height: 1.4;
+}
+
+.modal-desc {
+  font-family: 'VT323', monospace;
+  font-size: 19px;
+  line-height: 1.4;
+  color: #E2E8F0;
+  background: #0B0F19;
+  padding: 12px;
+  border: 2px solid #000;
+}
+
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.choice-card {
+  background: #1E293B;
+  border: 3px solid #000;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.choice-card:hover {
+  background: #334155;
+  border-color: var(--accent-gold);
+}
+
+.choice-title {
+  font-size: 11px;
+  color: #FEF08A;
+  margin-bottom: 6px;
+}
+
+.choice-desc {
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  color: #CBD5E1;
+}
+
+.nasa-source-box {
+  background: #064E3B;
+  border: 2px solid #10B981;
+  padding: 12px;
+  color: #D1FAE5;
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+/* Certificate */
+.certificate-frame {
+  background: #FFFBEB;
+  color: #1E293B;
+  border: 8px solid #B45309;
+  padding: 24px;
+  text-align: center;
+  font-family: 'Chakra Petch', sans-serif;
+}
+
+.cert-header {
+  font-size: 22px;
+  font-weight: 700;
+  color: #78350F;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.cert-name {
+  font-size: 28px;
+  font-weight: 700;
+  color: #B45309;
+  border-bottom: 2px dashed #B45309;
+  padding-bottom: 4px;
+  margin: 12px 0;
+  font-family: 'Press Start 2P', monospace;
+}
+
+.badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.badge-item {
+  background: #FEF3C7;
+  border: 2px solid #D97706;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Responsiveness */
+@media (max-width: 680px) {
+  .resources-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .hud-title {
+    font-size: 10px;
+  }
+  .pixel-btn {
+    font-size: 9px;
+    padding: 8px 10px;
+  }
+}

@@ -575,7 +575,7 @@ Requisitos: contraste WCAG AA como objetivo, foco de teclado visible, orden lóg
 | Vite | Servidor de desarrollo y compilación del frontend |
 | Three.js | Renderizado del escenario 3D |
 | React Three Fiber + Drei | Integración declarativa de Three.js en React y controles/utilidades |
-| React Router | Rutas de campaña y módulos |
+| React Router | Rutcdas de campaña y módulos |
 | Lucide React | Iconografía accesible con etiquetas |
 | CSS moderno / variables | Sistema visual responsive sin dependencias de diseño innecesarias |
 | Python + Django | Aplicación y persistencia de misión |

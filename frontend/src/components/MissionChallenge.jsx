@@ -934,28 +934,9 @@ function drawShieldScene(ctx, time, allSealed) {
   ctx.beginPath();
   ctx.ellipse(DOME.cx, DOME.base, DOME.rx, DOME.ry, 0, Math.PI, 0);
   ctx.stroke();
-
-  ctx.fillStyle = 'rgba(15, 26, 46, 0.78)';
-  roundRectPath(ctx, DOME.cx - 118, DOME.base + 12, 236, 24, 6);
-  ctx.fill();
-  ctx.fillStyle = '#F8E7D4';
-  ctx.font = 'bold 13px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('Tierra marciana (regolito)', DOME.cx, DOME.base + 29);
 }
 
-function drawOpenHole(ctx, h, time) {
-  ctx.strokeStyle = 'rgba(253, 224, 71, 0.75)';
-  ctx.lineWidth = 3;
-  ctx.lineCap = 'round';
-  for (let i = -1; i <= 1; i++) {
-    ctx.beginPath();
-    ctx.moveTo(h.x + i * 8, h.y + 8);
-    for (let k = 1; k <= 4; k++) {
-      ctx.lineTo(h.x + i * 8 + Math.sin(time * 6 + k + i) * 4 + i * k * 3, h.y + 8 + k * 7);
-    }
-    ctx.stroke();
-  }
+function drawOpenHole(ctx, h) {
   ctx.fillStyle = '#15151c';
   ctx.strokeStyle = '#f59e0b';
   ctx.lineWidth = 2;
@@ -1155,7 +1136,7 @@ function RegolithGame({ onProgress }) {
         if (h.sealed) {
           drawSealedHole(ctx, h, now);
         } else {
-          drawOpenHole(ctx, h, time);
+          drawOpenHole(ctx, h);
           if (h.progress > 0) {
             ctx.strokeStyle = `hsl(${45 - h.progress * 30}, 95%, 55%)`;
             ctx.lineWidth = 5;
@@ -1229,9 +1210,9 @@ function EvaGame({ onProgress }) {
 
   const remaining = samples.filter((s) => !collected.includes(s.id));
   const nearest = remaining.length ? Math.min(...remaining.map(distanceTo)) : Infinity;
-  let heat = '🥶 Frío: sigue buscando';
-  if (nearest < SCAN_RADIUS) heat = '🔥 ¡Caliente! Toca la muestra';
-  else if (nearest < 160) heat = '🙂 Tibio: te acercas';
+  let heat = { level: 'cold', text: 'Frío: sigue buscando' };
+  if (nearest < SCAN_RADIUS) heat = { level: 'hot', text: '¡Caliente! Toca la muestra' };
+  else if (nearest < 160) heat = { level: 'warm', text: 'Tibio: te acercas' };
 
   return (
     <div
@@ -1241,9 +1222,11 @@ function EvaGame({ onProgress }) {
       onPointerDown={trackPointer}
       onPointerLeave={() => setPointer(null)}
     >
-      <span className="eva-rock" style={{ left: '8%', top: '70%' }}>🪨</span>
-      <span className="eva-rock" style={{ left: '88%', top: '24%' }}>🪨</span>
-      <span className="eva-rock" style={{ left: '52%', top: '88%' }}>🪨</span>
+      <span className="eva-rock" style={{ left: '8%', top: '70%' }} aria-hidden="true" />
+      <span className="eva-rock eva-rock-small" style={{ left: '88%', top: '24%' }} aria-hidden="true" />
+      <span className="eva-rock" style={{ left: '52%', top: '88%' }} aria-hidden="true" />
+      <span className="eva-rock eva-rock-small" style={{ left: '30%', top: '14%' }} aria-hidden="true" />
+      <span className="eva-rock eva-rock-small" style={{ left: '74%', top: '78%' }} aria-hidden="true" />
       {remaining.map((s) => {
         const near = distanceTo(s) < SCAN_RADIUS;
         return (
@@ -1259,7 +1242,12 @@ function EvaGame({ onProgress }) {
             }}
             aria-label="Muestra de roca escondida"
           >
-            🧪
+            <svg viewBox="0 0 40 40" width="42" height="42" aria-hidden="true">
+              <path d="M5 28 Q4 14 16 9 Q30 6 35 18 Q38 29 28 33 Q14 36 5 28Z" fill="#b08a62" stroke="#5c3b1f" strokeWidth="2" />
+              <path d="M8 24 Q20 20 33 24" stroke="#d9bd94" strokeWidth="2.5" fill="none" />
+              <path d="M7 29 Q20 25 34 29" stroke="#8a6a44" strokeWidth="2" fill="none" />
+              <path d="M11 17 Q22 13 31 17" stroke="#d9bd94" strokeWidth="2" fill="none" />
+            </svg>
           </button>
         );
       })}
@@ -1270,60 +1258,420 @@ function EvaGame({ onProgress }) {
           aria-hidden="true"
         />
       )}
-      <span className="eva-heat">{heat}</span>
+      <span className="eva-heat">
+        <span className={`eva-heat-dot eva-heat-${heat.level}`} aria-hidden="true" />
+        {heat.text}
+      </span>
     </div>
   );
 }
 
-/* ---------- 7. Antena: apunta a la Tierra ---------- */
-function AntennaGame({ onProgress }) {
-  const target = useMemo(() => 20 + Math.round(Math.random() * 60), []);
-  const [value, setValue] = useState(50);
-  const [locked, setLocked] = useState(false);
-  const diff = Math.abs(value - target);
-  const strong = diff <= 5;
-  const strength = Math.max(0, 1 - diff / 40);
+/* ---------- 7. Antena: lleva la señal por el laberinto hasta la Tierra ---------- */
+const MAZE_COLS = 13;
+const MAZE_ROWS = 6;
+const MAZE_CELL = 46;
+const MAZE_W = 640;
+const MAZE_H = 300;
+const MAZE_OX = (MAZE_W - MAZE_COLS * MAZE_CELL) / 2;
+const MAZE_OY = (MAZE_H - MAZE_ROWS * MAZE_CELL) / 2;
+const MAZE_STARS = Array.from({ length: 110 }, (_, i) => ({
+  x: (i * 211.7) % MAZE_W,
+  y: (i * 97.3 + ((i * i) % 53)) % MAZE_H,
+  r: 0.5 + (i % 4) * 0.35,
+  phase: i * 1.7
+}));
+const MAZE_DIRS = [
+  { dx: 0, dy: -1, from: 'n', to: 's' },
+  { dx: 1, dy: 0, from: 'e', to: 'w' },
+  { dx: 0, dy: 1, from: 's', to: 'n' },
+  { dx: -1, dy: 0, from: 'w', to: 'e' }
+];
 
-  useEffect(() => { onProgress(locked ? 1 : 0, 1); }, [locked, onProgress]);
+function generateMaze() {
+  const cells = Array.from({ length: MAZE_COLS * MAZE_ROWS }, () => ({ n: true, e: true, s: true, w: true }));
+  const visited = new Array(cells.length).fill(false);
+  const stack = [0];
+  visited[0] = true;
+  const inside = (x, y) => x >= 0 && y >= 0 && x < MAZE_COLS && y < MAZE_ROWS;
+
+  while (stack.length) {
+    const cur = stack[stack.length - 1];
+    const cx = cur % MAZE_COLS;
+    const cy = Math.floor(cur / MAZE_COLS);
+    const options = MAZE_DIRS.filter((d) => (
+      inside(cx + d.dx, cy + d.dy) && !visited[(cy + d.dy) * MAZE_COLS + cx + d.dx]
+    ));
+    if (!options.length) {
+      stack.pop();
+    } else {
+      const d = options[Math.floor(Math.random() * options.length)];
+      const next = (cy + d.dy) * MAZE_COLS + cx + d.dx;
+      cells[cur][d.from] = false;
+      cells[next][d.to] = false;
+      visited[next] = true;
+      stack.push(next);
+    }
+  }
+
+  for (let i = 0; i < 10; i++) {
+    const cx = Math.floor(Math.random() * MAZE_COLS);
+    const cy = Math.floor(Math.random() * MAZE_ROWS);
+    const d = MAZE_DIRS[Math.floor(Math.random() * MAZE_DIRS.length)];
+    if (inside(cx + d.dx, cy + d.dy)) {
+      cells[cy * MAZE_COLS + cx][d.from] = false;
+      cells[(cy + d.dy) * MAZE_COLS + cx + d.dx][d.to] = false;
+    }
+  }
+  return cells;
+}
+
+function mazeNeighbors(cells, index) {
+  const cx = index % MAZE_COLS;
+  const cy = Math.floor(index / MAZE_COLS);
+  return MAZE_DIRS
+    .filter((d) => !cells[index][d.from])
+    .map((d) => (cy + d.dy) * MAZE_COLS + cx + d.dx);
+}
+
+function mazePath(cells, from, to, maxLength) {
+  const previous = new Map([[from, null]]);
+  const queue = [from];
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur === to) break;
+    mazeNeighbors(cells, cur).forEach((n) => {
+      if (!previous.has(n)) {
+        previous.set(n, cur);
+        queue.push(n);
+      }
+    });
+  }
+  if (!previous.has(to)) return null;
+  const path = [];
+  for (let c = to; c !== from; c = previous.get(c)) path.unshift(c);
+  return path.length <= maxLength ? path : null;
+}
+
+function mazeCenter(index) {
+  return {
+    x: MAZE_OX + (index % MAZE_COLS) * MAZE_CELL + MAZE_CELL / 2,
+    y: MAZE_OY + Math.floor(index / MAZE_COLS) * MAZE_CELL + MAZE_CELL / 2
+  };
+}
+
+function drawSpace(ctx, time) {
+  const bg = ctx.createLinearGradient(0, 0, 0, MAZE_H);
+  bg.addColorStop(0, '#040816');
+  bg.addColorStop(1, '#101a3d');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, MAZE_W, MAZE_H);
+
+  const nebula = (x, y, r, color) => {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  };
+  nebula(150, 90, 190, 'rgba(110, 60, 190, 0.22)');
+  nebula(500, 220, 210, 'rgba(30, 90, 190, 0.22)');
+
+  MAZE_STARS.forEach((s) => {
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.35 + 0.55 * Math.abs(Math.sin(time * 1.4 + s.phase))})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function drawMazeWalls(ctx, cells) {
+  ctx.fillStyle = 'rgba(10, 25, 60, 0.35)';
+  ctx.fillRect(MAZE_OX, MAZE_OY, MAZE_COLS * MAZE_CELL, MAZE_ROWS * MAZE_CELL);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(125, 211, 252, 0.95)';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.shadowColor = '#38bdf8';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  cells.forEach((c, i) => {
+    const col = i % MAZE_COLS;
+    const row = Math.floor(i / MAZE_COLS);
+    const x = MAZE_OX + col * MAZE_CELL;
+    const y = MAZE_OY + row * MAZE_CELL;
+    if (c.n) { ctx.moveTo(x, y); ctx.lineTo(x + MAZE_CELL, y); }
+    if (c.w) { ctx.moveTo(x, y); ctx.lineTo(x, y + MAZE_CELL); }
+    if (col === MAZE_COLS - 1 && c.e) { ctx.moveTo(x + MAZE_CELL, y); ctx.lineTo(x + MAZE_CELL, y + MAZE_CELL); }
+    if (row === MAZE_ROWS - 1 && c.s) { ctx.moveTo(x, y + MAZE_CELL); ctx.lineTo(x + MAZE_CELL, y + MAZE_CELL); }
+  });
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawAntennaDish(ctx, x, y, time, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1.15, 1.15);
+  ctx.fillStyle = '#8b93a8';
+  ctx.fillRect(-10, 11, 20, 5);
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, 11);
+  ctx.lineTo(0, 3);
+  ctx.stroke();
+
+  ctx.translate(0, 3);
+  ctx.rotate(angle);
+  ctx.fillStyle = '#e2e8f0';
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(0, -2, 14, 8, 0, 0, Math.PI);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.beginPath();
+  ctx.moveTo(0, -2);
+  ctx.lineTo(0, -15);
+  ctx.stroke();
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.arc(0, -16, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(125, 211, 252, 0.7)';
+  ctx.lineWidth = 2;
+  for (let k = 0; k < 2; k++) {
+    const phase = (time * 1.2 + k * 0.5) % 1;
+    ctx.globalAlpha = 1 - phase;
+    ctx.beginPath();
+    ctx.arc(0, -16, 6 + phase * 12, -Math.PI * 0.85, -Math.PI * 0.15);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawEarth(ctx, x, y, time, glow) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.shadowColor = glow ? '#4ade80' : '#60a5fa';
+  ctx.shadowBlur = glow ? 26 : 14;
+  ctx.fillStyle = '#1d4ed8';
+  ctx.beginPath();
+  ctx.arc(0, 0, 17, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, 17, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = '#22c55e';
+  [[0, -6, 8, 5], [18, 5, 7, 6], [30, -9, 6, 4]].forEach(([base, by, rx, ry]) => {
+    [0, -44].forEach((wrap) => {
+      const bx = ((base + time * 5) % 44) - 22 + wrap + 22;
+      ctx.beginPath();
+      ctx.ellipse(bx - 22, by, rx, ry, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.beginPath();
+  ctx.ellipse(-4, 8, 9, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const shade = ctx.createRadialGradient(-6, -6, 2, 0, 0, 19);
+  shade.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
+  shade.addColorStop(1, 'rgba(0, 0, 40, 0.5)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(-18, -18, 36, 36);
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawSignalPulse(ctx, pos, time) {
+  ctx.save();
+  ctx.translate(pos.x, pos.y);
+  ctx.strokeStyle = 'rgba(165, 243, 252, 0.6)';
+  ctx.lineWidth = 2;
+  for (let k = 0; k < 2; k++) {
+    const phase = ((time * 0.9 + k * 0.5) % 1);
+    ctx.globalAlpha = 1 - phase;
+    ctx.beginPath();
+    ctx.arc(0, 0, 7 + phase * 14, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = '#67e8f9';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = '#ecfeff';
+  ctx.beginPath();
+  ctx.arc(0, 0, 6 * (1 + Math.sin(time * 6) * 0.15), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function AntennaGame({ onProgress }) {
+  const canvasRef = useRef(null);
+  const [delivered, setDelivered] = useState(false);
+
+  useEffect(() => { onProgress(delivered ? 1 : 0, 1); }, [delivered, onProgress]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const cells = generateMaze();
+    const startCell = (MAZE_ROWS - 1) * MAZE_COLS;
+    const endCell = MAZE_COLS - 1;
+    const trail = [startCell];
+    const pos = { ...mazeCenter(startCell) };
+    let current = startCell;
+    let won = false;
+    let wonAt = 0;
+    let lastMove = 0;
+    let dragging = false;
+    let last = performance.now();
+    let frameId = 0;
+
+    const stepTo = (next) => {
+      if (won) return;
+      if (trail.length >= 2 && trail[trail.length - 2] === next) trail.pop();
+      else trail.push(next);
+      current = next;
+      if (next === endCell) {
+        won = true;
+        wonAt = performance.now();
+        setDelivered(true);
+        sounds.playPower();
+      }
+    };
+
+    const tryDirection = (dx, dy) => {
+      const now = performance.now();
+      if (won || now - lastMove < 90) return;
+      const wall = dx === 1 ? 'e' : dx === -1 ? 'w' : dy === 1 ? 's' : 'n';
+      if (cells[current][wall]) return;
+      lastMove = now;
+      stepTo((Math.floor(current / MAZE_COLS) + dy) * MAZE_COLS + (current % MAZE_COLS) + dx);
+    };
+
+    const onKeyDown = (e) => {
+      const map = {
+        ArrowUp: [0, -1], KeyW: [0, -1],
+        ArrowDown: [0, 1], KeyS: [0, 1],
+        ArrowLeft: [-1, 0], KeyA: [-1, 0],
+        ArrowRight: [1, 0], KeyD: [1, 0]
+      };
+      const dir = map[e.code];
+      if (!dir) return;
+      e.preventDefault();
+      tryDirection(dir[0], dir[1]);
+    };
+
+    const cellAt = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) * MAZE_W) / rect.width;
+      const y = ((e.clientY - rect.top) * MAZE_H) / rect.height;
+      const col = Math.floor((x - MAZE_OX) / MAZE_CELL);
+      const row = Math.floor((y - MAZE_OY) / MAZE_CELL);
+      if (col < 0 || row < 0 || col >= MAZE_COLS || row >= MAZE_ROWS) return -1;
+      return row * MAZE_COLS + col;
+    };
+    const drag = (e) => {
+      if (!dragging || won) return;
+      const target = cellAt(e);
+      if (target < 0 || target === current) return;
+      const path = mazePath(cells, current, target, 3);
+      if (path) path.forEach(stepTo);
+    };
+    const onDown = (e) => {
+      dragging = true;
+      canvas.setPointerCapture(e.pointerId);
+      drag(e);
+    };
+    const onUp = () => { dragging = false; };
+
+    window.addEventListener('keydown', onKeyDown);
+    canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointermove', drag);
+    canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
+
+    const step = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const time = now / 1000;
+      const target = mazeCenter(current);
+      const ease = Math.min(1, 16 * dt);
+      pos.x += (target.x - pos.x) * ease;
+      pos.y += (target.y - pos.y) * ease;
+
+      drawSpace(ctx, time);
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      trail.forEach((c, i) => {
+        const p = mazeCenter(c);
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      });
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      ctx.restore();
+
+      drawMazeWalls(ctx, cells);
+      const antenna = mazeCenter(startCell);
+      const earth = mazeCenter(endCell);
+      const dishAngle = Math.atan2(earth.x - antenna.x, -(earth.y - antenna.y));
+      drawAntennaDish(ctx, antenna.x, antenna.y, time, dishAngle);
+      drawEarth(ctx, earth.x, earth.y, time, won);
+
+      if (won) {
+        const age = (now - wonAt) / 1000;
+        ctx.save();
+        ctx.strokeStyle = '#86efac';
+        ctx.lineWidth = 3;
+        for (let k = 0; k < 3; k++) {
+          const phase = (age * 0.8 + k / 3) % 1;
+          ctx.globalAlpha = 1 - phase;
+          ctx.beginPath();
+          ctx.arc(earth.x, earth.y, 20 + phase * 40, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else {
+        drawSignalPulse(ctx, pos, time);
+      }
+
+      frameId = requestAnimationFrame(step);
+    };
+    frameId = requestAnimationFrame(step);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener('keydown', onKeyDown);
+      canvas.removeEventListener('pointerdown', onDown);
+      canvas.removeEventListener('pointermove', drag);
+      canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointercancel', onUp);
+    };
+  }, []);
 
   return (
-    <div className="antenna-field">
-      <div className="antenna-track">
-        <span className="antenna-earth" style={{ left: `${target}%` }}>🌍</span>
-        <span className="antenna-dish" style={{ left: `${value}%`, transform: `translateX(-50%) rotate(${(value - 50) * 0.9}deg)` }}>📡</span>
-      </div>
-      <input
-        type="range"
-        min="0"
-        max="100"
-        value={value}
-        disabled={locked}
-        onChange={(e) => setValue(Number(e.target.value))}
-        className="antenna-slider"
-        aria-label="Girar la antena"
-      />
-      <div className="antenna-signal" aria-live="polite">
-        <span>Señal</span>
-        <span className="antenna-signal-track">
-          <span style={{ width: `${strength * 100}%`, background: strong ? '#34D399' : '#F59E0B' }} />
-        </span>
-        <strong>{strong ? '¡Fuerte!' : diff <= 15 ? 'Débil' : 'Sin señal'}</strong>
-      </div>
-      <button
-        type="button"
-        className="pixel-btn pixel-btn-cyan"
-        disabled={!strong || locked}
-        onClick={() => {
-          sounds.playBlip();
-          setLocked(true);
-        }}
-      >
-        {locked ? 'Señal bloqueada ✓' : 'Bloquear señal'}
-      </button>
-    </div>
+    <canvas
+      ref={canvasRef}
+      width={MAZE_W}
+      height={MAZE_H}
+      className="maze-canvas"
+      aria-label="Laberinto espacial: guía la señal desde la antena hasta la Tierra"
+    />
   );
 }
-
 /* ---------- Marco común del reto ---------- */
 const CHALLENGES = {
   clean: {
@@ -1371,9 +1719,9 @@ const CHALLENGES = {
   },
   antenna: {
     title: '¡MENSAJE A HOUSTON!',
-    nova: 'Para hablar con la Tierra la antena debe apuntar al planeta azul. ¡Gírala hasta tener señal fuerte!',
-    label: 'Antena apuntando',
-    hint: 'Mueve el control hasta que la señal sea fuerte y pulsa "Bloquear señal".',
+    nova: 'Tu mensaje debe viajar desde la antena hasta la Tierra esquivando las paredes del laberinto espacial. ¡Guía la señal hasta el planeta azul!',
+    label: 'Señal entregada',
+    hint: 'Usa las flechas o W A S D, o arrastra el mouse (o el dedo) por el pasillo para mover la señal. Puedes volver atrás si te equivocas.',
     Game: AntennaGame
   }
 };
@@ -1452,6 +1800,7 @@ export default function MissionChallenge({
     </div>
   );
 }
+
 
 
 

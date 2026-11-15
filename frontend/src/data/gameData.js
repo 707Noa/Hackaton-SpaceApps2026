@@ -140,7 +140,7 @@ export const INITIAL_GAME_STATE = {
       sol: 1,
       sender: 'Control en Houston',
       subject: '¡Bienvenidos a Marte!',
-      text: '¡Hola Comandante! Tu base en el cráter Jezero está lista. Muévete con WASD o las flechas, cuida tus recursos y cumple las misiones.',
+      text: '¡Hola, Comandante! Tu base en Jezero está lista. ¡Cuida tus recursos y cumple las misiones!',
       latencyMin: 14.2
     }
   ],
@@ -378,4 +378,3 @@ export const SOL_EVENTS = [
     ]
   }
 ];
-

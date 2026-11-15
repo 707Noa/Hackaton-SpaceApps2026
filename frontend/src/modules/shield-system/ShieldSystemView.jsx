@@ -7,63 +7,61 @@ export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaMod
     <div className="module-panel pixel-box">
       <div className="module-header">
         <div>
-          <span className="module-tag">MOD-04 · PROTECCIÓN Y SEGURIDAD AMBIENTAL</span>
-          <h2 className="module-title">Shield System: Búnker de Regolito & Clima Espacial DONKI</h2>
+          <span className="module-tag">PROTECCIÓN</span>
+          <h2 className="module-title">Búnker y Escudo</h2>
         </div>
         <div className="flex gap-2">
-          <button 
+          <button
             className="pixel-btn pixel-btn-cyan text-xs"
             onClick={() => onOpenNasaModal('donki')}
           >
-            🔍 Datos DONKI
+            🔍 Dato DONKI
           </button>
-          <button 
+          <button
             className="pixel-btn pixel-btn-cyan text-xs"
             onClick={() => onOpenNasaModal('curiosity_rad')}
           >
-            🔍 Mediciones RAD
+            🔍 Dato Curiosity
           </button>
         </div>
       </div>
 
       <p className="module-desc">
-        Marte no posee campo magnético global. La radiación cósmica galáctica y las eyecciones solares (CME) catalogadas por NASA DONKI representan un riesgo letal. El búnker del puesto utiliza sacos de regolito marciano como blindaje de masa pasivo.
+        Marte no frena la radiación del Sol. La tierra marciana sí la bloquea, y NASA DONKI avisa de las tormentas.
       </p>
 
-      {/* Shield Metrics Dashboard */}
       <div className="metrics-row">
         <div className="metric-card">
-          <div className="metric-label">INTEGRIDAD DEL ESCUDO</div>
+          <div className="metric-label">ESCUDO</div>
           <div className={`metric-value ${shield < 40 ? 'text-red' : 'text-green'}`}>{shield}%</div>
-          <div className="text-xs text-muted">Atenuación de rayos cósmicos</div>
+          <div className="text-xs text-muted">Cuánta radiación frena</div>
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">ESTADO DEL BÚNKER DE REGOLITO</div>
+          <div className="metric-label">BÚNKER</div>
           <div className={`metric-value ${bunkerActive ? 'text-green' : 'text-gold'}`}>
-            {bunkerActive ? '🔒 ACTIVO (SEGURO)' : 'STANDBY'}
+            {bunkerActive ? '🔒 CERRADO' : 'ABIERTO'}
           </div>
           <div className="text-xs text-muted">
-            {bunkerActive ? 'Tripulación resguardada bajo roca' : 'Cúpula en configuración estándar'}
+            {bunkerActive ? 'El equipo está a salvo' : 'Listo para una tormenta'}
           </div>
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">DOSIS AMBIENTAL ESTIMADA</div>
-          <div className="metric-value text-cyan">~0.67 mSv/sol</div>
-          <div className="text-xs text-muted">Línea base histórica Curiosity RAD</div>
+          <div className="metric-label">RADIACIÓN POR SOL</div>
+          <div className="metric-value text-cyan">0.67 mSv</div>
+          <div className="text-xs text-muted">Medida por Curiosity: ¡más que en la Tierra!</div>
         </div>
       </div>
 
-      {/* Module Action Buttons */}
       <div className="module-actions-grid">
         <button
           className={`pixel-btn ${bunkerActive ? 'pixel-btn-green' : 'pixel-btn-gold'}`}
           onClick={() => onExecuteAction('shield_system', 'toggle_bunker')}
           disabled={actionsRemaining <= 0 || (resources.energy < 6 && !bunkerActive)}
         >
-          {bunkerActive ? '🔓 Abrir Búnker y Reanudar Salidas' : '🛡️ Activar Refugio en Búnker de Regolito'}
-          <span className="action-cost">{bunkerActive ? 'Sin costo de salida' : 'Costo: 6⚡ · Protección Máxima'}</span>
+          {bunkerActive ? '🔓 Abrir el búnker' : '🛡️ Entrar al búnker'}
+          <span className="action-cost">{bunkerActive ? 'Gratis' : 'Cuesta 6⚡ · Máxima protección'}</span>
         </button>
 
         <button
@@ -71,8 +69,8 @@ export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaMod
           onClick={() => onExecuteAction('shield_system', 'eva_expedition')}
           disabled={actionsRemaining <= 0 || resources.oxygen < 6 || resources.water < 6 || bunkerActive}
         >
-          🥾 Planificar Expedición EVA al Delta Antiguo
-          <span className="action-cost">Costo: 6 O₂ · 6💧 · Suma +18 Ciencia</span>
+          🥾 Salir a explorar el cráter
+          <span className="action-cost">Cuesta 6 O₂ · 6💧 · +18 ciencia</span>
         </button>
 
         <button
@@ -80,11 +78,10 @@ export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaMod
           onClick={() => onExecuteAction('shield_system', 'reinforce_regolith')}
           disabled={actionsRemaining <= 0 || resources.energy < 8}
         >
-          🧱 Compactar Capa de Regolito en la Cúpula
-          <span className="action-cost">Costo: 8⚡ · Sube Escudo +15%</span>
+          🧱 Reforzar con tierra marciana
+          <span className="action-cost">Cuesta 8⚡ · Escudo +15%</span>
         </button>
       </div>
     </div>
   );
 }
-

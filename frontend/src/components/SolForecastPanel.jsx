@@ -25,8 +25,8 @@ export default function SolForecastPanel({ state }) {
   if (!forecast) {
     return (
       <section className="sol-forecast-card" aria-label="Previsión de la misión">
-        <strong>ÚLTIMO SOL DE LA MISIÓN</strong>
-        <p>Revisa tus órdenes antes de cerrar este día marciano.</p>
+        <strong>ÚLTIMO SOL</strong>
+        <p>Usa tus órdenes y cierra la misión.</p>
       </section>
     );
   }
@@ -35,15 +35,11 @@ export default function SolForecastPanel({ state }) {
     <section className="sol-forecast-card" aria-labelledby="sol-forecast-title">
       <div className="sol-forecast-header">
         <div>
-          <span className="sol-forecast-kicker">PLANIFICA CON NOVA</span>
-          <h3 id="sol-forecast-title">Previsión del Sol {forecast.nextSol}</h3>
+          <span className="sol-forecast-kicker">NOVA TE AVISA</span>
+          <h3 id="sol-forecast-title">Mañana, Sol {forecast.nextSol}</h3>
         </div>
-        <span className="forecast-estimate-badge">ESTIMACIÓN</span>
+        
       </div>
-
-      <p className="forecast-caption">
-        Cambios esperados al avanzar, antes de elegir en el próximo evento.
-      </p>
 
       <div className="forecast-resource-grid">
         {forecastMetrics.map(({ id, label, icon }) => {
@@ -56,42 +52,35 @@ export default function SolForecastPanel({ state }) {
               <strong className={getChangeClass(id, delta)}>
                 {sign}{delta}%
               </strong>
-              <span className="forecast-projected-value">
-                Quedaría en {forecast.projectedResources[id]}%
-              </span>
             </div>
           );
         })}
       </div>
 
-      <p className="forecast-note">
-        La energía incluye la producción solar y el consumo de la base. El polvo puede reducirla.
-      </p>
-
       {forecast.cropHarvest && (
         <p className="forecast-positive-note">
-          🎉 La cosecha estará lista y sumará comida y oxígeno.
+          🎉 ¡Habrá cosecha: más comida y aire!
         </p>
       )}
 
       {forecast.earthReplyPending && (
         <p className="forecast-info-note">
-          📡 Hay una respuesta de la Tierra pendiente para el próximo Sol.
+          📡 Houston te responderá mañana.
         </p>
       )}
 
       {forecast.upcomingEvent && (
         <div className="forecast-event">
-          <strong>Evento previsto: {forecast.upcomingEvent.title}</strong>
+          <strong>Mañana: {forecast.upcomingEvent.title}</strong>
           <span>{forecast.upcomingEvent.subtitle}</span>
           {forecast.upcomingEvent.hazard === 'solar_radiation' && (
             <span className="forecast-hazard-deadline">
-              ⏳ Plazo: prepara el búnker antes de cerrar este Sol o durante el Sol {forecast.nextSol}.
+              ⏳ Prepara el búnker antes de que acabe el día.
             </span>
           )}
           {forecast.upcomingEvent.hazard === 'dust_storm' && (
             <span className="forecast-hazard-deadline">
-              ⏳ Próximo Sol: el polvo reducirá la energía solar. Deja una orden para el rover.
+              ⏳ Mañana habrá polvo. Guarda una orden para el rover.
             </span>
           )}
         </div>
@@ -102,38 +91,40 @@ export default function SolForecastPanel({ state }) {
           <strong>
             {state.activeHazard.type === 'solar_radiation'
               ? `☀️ Tormenta solar · ${state.activeHazard.remainingSols} Sol(es)`
-              : '🌪️ Tormenta de polvo activa'}
+              : '🌪️ Tormenta de polvo'}
           </strong>
           <span>
             {state.activeHazard.type === 'solar_radiation'
               ? state.bunkerActive
-                ? 'La tripulación está protegida dentro del búnker.'
-                : 'La exposición suma dosis y reduce la salud. Cierra el búnker.'
-              : 'Los paneles producen menos energía hasta que pase el temporal.'}
+                ? 'El equipo está a salvo en el búnker.'
+                : 'La radiación enferma al equipo. ¡Cierra el búnker!'
+              : 'Los paneles dan menos energía por ahora.'}
           </span>
         </div>
       )}
 
       <p className="forecast-crew">
-        🧑‍🚀 Salud de la tripulación: {state.crew.health}% → {forecast.projectedCrewHealth}%
+        🧑‍🚀 Salud del equipo: {state.crew.health}% → {forecast.projectedCrewHealth}%
       </p>
 
       {state.activeHazard?.type === 'solar_radiation' && !state.bunkerActive && (
         <p className="forecast-risk-note">
-          ☢️ Índice de exposición previsto al cerrar el Sol: {forecast.projectedRadiationDose}%.
+          ☢️ Radiación al final del día: {forecast.projectedRadiationDose}%.
         </p>
       )}
 
       {forecast.survivalRisk && (
         <p className="forecast-risk-note">
-          ⚠️ La proyección pone en riesgo a la tripulación. Revisa las alertas antes de avanzar.
+          ⚠️ ¡Cuidado! El equipo podría enfermar. Mira las alertas.
         </p>
       )}
 
       <div className="forecast-orders">
-        Órdenes disponibles hoy: <strong>{state.actionsRemaining}/{state.maxActionsPerSol}</strong>
+        Órdenes de hoy: <strong>{state.actionsRemaining}/{state.maxActionsPerSol}</strong>
       </div>
     </section>
   );
 }
+
+
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { getNextSolForecast } from '../services/gameEngine';
 import { getTelemetrySnapshot } from '../services/telemetryStatus';
 
@@ -28,7 +28,7 @@ function getGuidance(state) {
     return {
       icon: '🌱',
       title: '¡La cosecha está lista!',
-      message: 'Al avanzar el Sol, las plantas aportarán comida y oxígeno a la base.',
+      message: 'Pasa al siguiente Sol y tendrás comida y aire.',
       module: 'agrodome',
       severity: 'info'
     };
@@ -38,7 +38,7 @@ function getGuidance(state) {
     return {
       icon: '📡',
       title: 'Respuesta de la Tierra en camino',
-      message: 'Houston responderá al avanzar el Sol. Puedes revisar el enlace de comunicaciones.',
+      message: 'Houston te responderá en el siguiente Sol.',
       module: 'mission_control',
       severity: 'info'
     };
@@ -48,7 +48,7 @@ function getGuidance(state) {
     return {
       icon: '🛰️',
       title: 'Prepara el próximo Sol',
-      message: `Se acerca: ${forecast.upcomingEvent.subtitle}. Revisa la previsión antes de avanzar.`,
+      message: `Mañana: ${forecast.upcomingEvent.subtitle}. Mira la previsión.`,
       module: 'mission_control',
       severity: 'info'
     };
@@ -57,7 +57,7 @@ function getGuidance(state) {
   return {
     icon: '✅',
     title: '¡Buen trabajo, comandante!',
-    message: 'Los sistemas están estables. Conserva tus recursos y revisa la previsión antes de avanzar.',
+    message: 'Todo está bien. Cuida tus recursos.',
     module: null,
     severity: 'nominal'
   };
@@ -120,3 +120,4 @@ export default function NovaAdvisor({ state, onSelectModule }) {
     </section>
   );
 }
+

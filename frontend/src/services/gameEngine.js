@@ -381,7 +381,7 @@ export function advanceSolState(state) {
       sol: next.sol + 1,
       sender: 'Control en Houston',
       subject: 'Respuesta de la Tierra',
-      text: `¡Recibido Comandante ${next.cadetName}! Los ingenieros de la NASA revisaron tu mensaje. ¡Sigue cuidando el equilibrio entre energía y agua!`,
+      text: `¡Mensaje recibido, ${next.cadetName}! La NASA dice: ¡sigue cuidando la energía y el agua!`,
       latencyMin: 14.2
     });
   }
@@ -534,4 +534,6 @@ export function generateReport(state) {
     crewHealth: state.crew.health
   };
 }
+
+
 

@@ -1,14 +1,22 @@
 import React from 'react';
 import { MISSIONS_LIST } from '../data/gameData';
+import { getTelemetrySnapshot } from '../services/telemetryStatus';
 
 export default function TelemetryHUD({ 
   state, 
   isMuted, 
   onToggleMute,
   onOpenMissions,
-  onAdvanceSol
+  onAdvanceSol,
+  onSelectModule,
+  isReducedMotion,
+  onToggleReducedMotion
 }) {
   const { sol, totalSols, crew, actionsRemaining, completedMissions = [] } = state;
+  const { metrics, alerts } = getTelemetrySnapshot(state);
+  const quickMetrics = metrics.filter((metric) => ['energy', 'water', 'oxygen', 'co2'].includes(metric.id));
+  const crewStatus = metrics.find((metric) => metric.id === 'crew');
+  const activeAlert = alerts[0];
 
   return (
     <header className="telemetry-header">
@@ -17,12 +25,38 @@ export default function TelemetryHUD({
           <strong>MARS OUTPOST</strong>
           <span className="location-badge">JEZERO · MARTE</span>
           <span className="sol-badge">SOL 0{sol} / 0{totalSols}</span>
-          <span className="crew-badge">🧑‍🚀 SALUD {crew.health}%</span>
+        </div>
+
+        <div className="telemetry-resource-strip" aria-label="Recursos esenciales">
+          {quickMetrics.map((metric) => (
+            <div
+              key={metric.id}
+              className={`telemetry-metric telemetry-metric-${metric.severity}`}
+              title={`${metric.label}: ${metric.value}%`}
+            >
+              <span className="telemetry-metric-label">{metric.icon} {metric.label}</span>
+              <strong className="telemetry-metric-value">{metric.value}%</strong>
+              <span className="telemetry-meter-track">
+                <span
+                  className="telemetry-meter-fill"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, metric.value))}%`,
+                    backgroundColor: metric.severity === 'critical'
+                      ? '#EF4444'
+                      : metric.severity === 'warning' ? '#F59E0B' : '#34D399'
+                  }}
+                />
+              </span>
+            </div>
+          ))}
         </div>
 
         <div className="header-status-group">
+          <span className={`crew-badge crew-badge-${crewStatus.severity}`}>
+            🧑‍🚀 SALUD {crew.health}%
+          </span>
           <span className="actions-badge">
-            ÓRDENES: {actionsRemaining}/2
+            ÓRDENES: {actionsRemaining}/{state.maxActionsPerSol}
           </span>
 
           <button 
@@ -43,10 +77,52 @@ export default function TelemetryHUD({
           <button 
             className="pixel-btn text-xs audio-toggle-btn"
             onClick={onToggleMute}
+            aria-label={isMuted ? 'Activar sonido' : 'Silenciar sonido'}
+            title={isMuted ? 'Activar sonido' : 'Silenciar sonido'}
           >
             {isMuted ? '🔇' : '🔊'}
           </button>
+
+          <button
+            className="pixel-btn text-xs motion-toggle-btn"
+            onClick={onToggleReducedMotion}
+            aria-pressed={isReducedMotion}
+            aria-label={isReducedMotion ? 'Desactivar movimiento reducido' : 'Activar movimiento reducido'}
+            title={isReducedMotion ? 'Desactivar movimiento reducido' : 'Activar movimiento reducido'}
+          >
+            {isReducedMotion ? '🐢' : '✨'}
+          </button>
         </div>
+      </div>
+
+      <div
+        className={`telemetry-alert-banner ${activeAlert ? `alert-${activeAlert.severity}` : 'alert-nominal'}`}
+        aria-live="polite"
+      >
+        {activeAlert ? (
+          <>
+            <span className="alert-banner-heading">
+              {activeAlert.severity === 'critical' ? 'ALERTA CRÍTICA' : 'AVISO DE MISIÓN'}
+            </span>
+            <strong>
+              {alerts.length > 1
+                ? `${alerts.length} sistemas necesitan atención`
+                : activeAlert.title || 'NOVA tiene un consejo para ti'}
+            </strong>
+            <span className="alert-banner-message">Usa "IR AL SISTEMA" para revisarlo.</span>
+            <button
+              className="telemetry-alert-action"
+              onClick={() => onSelectModule(activeAlert.module, activeAlert.message)}
+            >
+              IR AL SISTEMA
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="alert-banner-heading">SISTEMAS NOMINALES</span>
+            <span className="alert-banner-message">Recursos y tripulación dentro de rangos operativos.</span>
+          </>
+        )}
       </div>
     </header>
   );

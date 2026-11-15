@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function EventModal({ event, onChooseOption, onOpenNasaModal }) {
+export default function EventModal({ event, actionsRemaining = 2, onChooseOption, onOpenNasaModal }) {
   if (!event) return null;
 
   return (
@@ -17,16 +17,30 @@ export default function EventModal({ event, onChooseOption, onOpenNasaModal }) {
           {event.description}
         </div>
 
+        {event.hazard && (
+          <div className={`event-deadline-callout event-deadline-${event.hazard}`} role="status">
+            <strong>
+              {event.hazard === 'solar_radiation' ? '☢️ PLAZO DE PROTECCIÓN' : '🌪️ ALERTA DE CLIMA'}
+            </strong>
+            <span>
+              {event.hazard === 'solar_radiation'
+                ? `Tienes ${actionsRemaining} órdenes antes de cerrar este Sol. La radiación puede afectar la salud durante 2 Soles.`
+                : 'Tienes este Sol para limpiar los paneles. Durante el temporal producirán menos energía.'}
+            </span>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {event.choices.map((c) => (
-            <div 
-              key={c.id} 
+            <button
+              type="button"
+              key={c.id}
               className="choice-card"
               onClick={() => onChooseOption(c)}
             >
               <div style={{ fontSize: '11px', color: '#FEF08A', marginBottom: '6px' }}>{c.text}</div>
               <div style={{ fontFamily: '"VT323", monospace', fontSize: '17px', color: '#CBD5E1' }}>{c.detail}</div>
-            </div>
+            </button>
           ))}
         </div>
 

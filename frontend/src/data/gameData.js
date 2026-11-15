@@ -97,6 +97,9 @@ export const INITIAL_GAME_STATE = {
   },
   shield: 90,
   dust: 15,
+  activeHazard: null,
+  radiationDose: 0,
+  emergencyRescueUsed: false,
   bunkerActive: false,
   crops: {
     planted: false,
@@ -221,6 +224,7 @@ export const SOL_EVENTS = [
     subtitle: 'Alerta del sensor del clima MEDA',
     description: 'Un viento fuerte levantó polvo fino y cubrió parte de tus paneles solares. ¡Si no los limpias, entrará menos energía!',
     nasaSourceKey: 'meda',
+    hazard: 'dust_storm',
     choices: [
       {
         id: 'c2_a',
@@ -262,8 +266,9 @@ export const SOL_EVENTS = [
     sol: 4,
     title: 'Sol 04: ¡Alerta de Tormenta Solar!',
     subtitle: 'Aviso urgente de NASA DONKI',
-    description: 'El Sol lanzó una nube de radiación hacia Marte. ¡Es peligroso estar afuera o sin protección!',
+    description: 'El Sol lanzó una nube de radiación hacia Marte. La tormenta durará dos Soles: prepara el búnker para mantener a salvo a la tripulación.',
     nasaSourceKey: 'donki',
+    hazard: 'solar_radiation',
     choices: [
       {
         id: 'c4_a',
@@ -275,7 +280,7 @@ export const SOL_EVENTS = [
       {
         id: 'c4_b',
         text: '📡 Seguir Trabajando con Cuidado',
-        detail: 'Ahorras electricidad, pero la radiación debilita el escudo de la base.',
+        detail: 'Ahorras electricidad, pero sin cerrar el búnker la radiación acumula dosis y baja la salud.',
         effects: { energy: 5, shield: -25 }
       }
     ]

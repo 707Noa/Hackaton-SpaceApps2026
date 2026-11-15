@@ -12,12 +12,21 @@ import {
   createEarthTexture,
   createRockTexture
 } from './pixelTextureFactory';
+import { getTelemetrySnapshot } from './telemetryStatus';
+
+const SYSTEM_BY_MODULE = {
+  power_core: 'power',
+  agrodome: 'agrodome',
+  life_support: 'life_support',
+  shield_system: 'shield'
+};
 
 export class BabylonSceneManager {
-  constructor(canvas, onModuleClick, onProximityChange) {
+  constructor(canvas, onModuleClick, onProximityChange, onMapTargetChange) {
     this.canvas = canvas;
     this.onModuleClick = onModuleClick;
     this.onProximityChange = onProximityChange;
+    this.onMapTargetChange = onMapTargetChange;
 
     const BAB = window.BABYLON;
     if (!BAB) {
@@ -35,6 +44,7 @@ export class BabylonSceneManager {
     this.solarPanels = [];
     this.cropMeshes = [];
     this.domeLights = [];
+    this.statusBeacons = {};
     this.bunkerShieldMesh = null;
     this.roverGroup = null;
     this.astronautGroup = null;
@@ -46,8 +56,19 @@ export class BabylonSceneManager {
     // Keyboard & movement state
     this.keys = {};
     this.controlsEnabled = true;
+    this.reducedMotion = false;
+    this.isNight = false;
+    this.powerFailure = false;
+    this.activeHazard = null;
+    this.radiationStorm = false;
+    this.stormVisualIntensity = 0;
+    this.baseFogDensity = 0.012;
+    this.baseFogColor = new BAB.Color3(0.38, 0.14, 0.09);
     this.walkTime = 0;
     this.currentNearby = null;
+    this.currentMapTargetKey = null;
+    this.currentMapTarget = null;
+    this.systemStatuses = {};
     this.interactiveZones = [
       { module: 'agrodome', title: 'Invernadero Agrodome', x: -7.5, z: 6.5, radius: 5.0 },
       { module: 'agrodome', title: 'Invernadero Agrodome', x: -7.5, z: -6.5, radius: 5.0 },
@@ -67,6 +88,7 @@ export class BabylonSceneManager {
     this.initSolarArrays();
     this.initHabitatAndLab();
     this.initBunker();
+    this.initStatusBeacons();
     this.initRover();
     this.initAstronautAndBots();
     this.initMissionBeacon();
@@ -94,6 +116,7 @@ export class BabylonSceneManager {
       this.scene
     );
     this.camera.attachControl(this.canvas, true);
+    this.camera.inputs.removeByType('ArcRotateCameraMouseWheelInput');
     this.camera.lowerRadiusLimit = 14;
     this.camera.upperRadiusLimit = 42;
     this.camera.lowerBetaLimit = 0.35;
@@ -123,12 +146,19 @@ export class BabylonSceneManager {
 
     // Warm Martian atmospheric horizon haze (butterscotch/rust dust fog)
     this.scene.fogMode = BAB.Scene.FOGMODE_EXP2;
-    this.scene.fogDensity = 0.012;
-    this.scene.fogColor = new BAB.Color3(0.38, 0.14, 0.09);
+    this.scene.fogDensity = this.baseFogDensity;
+    this.scene.fogColor = this.baseFogColor.clone();
 
-    const earth = BAB.MeshBuilder.CreatePlane('pixelEarth', { size: 3.2 }, this.scene);
-    earth.position = new BAB.Vector3(-12, 11, 16);
+    const earthSize = 3.2;
+    const earthInitialPosition = new BAB.Vector3(-12, 11, 16);
+    this.earthReferenceDistance = BAB.Vector3.Distance(this.camera.position, earthInitialPosition);
+    const earthDirection = earthInitialPosition.subtract(this.camera.position).normalize();
+    const earthDistance = 120;
+    const earth = BAB.MeshBuilder.CreatePlane('pixelEarth', { size: earthSize }, this.scene);
+    earth.position = this.camera.position.add(earthDirection.scale(earthDistance));
+    earth.scaling.setAll(earthDistance / this.earthReferenceDistance);
     earth.billboardMode = BAB.Mesh.BILLBOARDMODE_ALL;
+    this.earth = earth;
 
     const earthMat = new BAB.StandardMaterial('earthMat', this.scene);
     const earthTex = createEarthTexture(BAB, this.scene);
@@ -136,6 +166,7 @@ export class BabylonSceneManager {
     earthMat.diffuseTexture = earthTex;
     earthMat.emissiveTexture = earthTex;
     earthMat.useAlphaFromDiffuseTexture = true;
+    earthMat.fogEnabled = false;
     earthMat.specularColor = new BAB.Color3(0, 0, 0);
     earth.material = earthMat;
     earth.metadata = {
@@ -173,7 +204,8 @@ export class BabylonSceneManager {
       const vx = positions[i];
       const vz = positions[i + 2];
       const dist = Math.hypot(vx, vz);
-      if (dist > 17.5) {
+      const insideOutpostGround = Math.abs(vx) <= 20 && Math.abs(vz) <= 20;
+      if (dist > 17.5 && !insideOutpostGround) {
         const edgeFactor = Math.min(1, (dist - 17.5) / 28);
         const angle = Math.atan2(vz, vx);
         // Smooth undulating crater rim + rolling sand dunes + flat-topped mesa ridges
@@ -192,9 +224,20 @@ export class BabylonSceneManager {
     outerGround.material = outerMat;
 
     // Inner walkable base terrain with crisp pixel-art paths
-    const ground = BAB.MeshBuilder.CreateGround('marsTerrain', { width: 36, height: 36, subdivisions: 8 }, this.scene);
+    const groundSize = 40;
+    const ground = BAB.MeshBuilder.CreateGround('marsTerrain', {
+      width: groundSize,
+      height: groundSize,
+      subdivisions: 8
+    }, this.scene);
     const groundMat = new BAB.StandardMaterial('groundMat', this.scene);
-    groundMat.diffuseTexture = createMarsGroundTexture(BAB, this.scene);
+    const groundTexture = createMarsGroundTexture(BAB, this.scene);
+    const textureScale = groundSize / 36;
+    groundTexture.uScale = textureScale;
+    groundTexture.vScale = textureScale;
+    groundTexture.uOffset = (1 - textureScale) / 2;
+    groundTexture.vOffset = (1 - textureScale) / 2;
+    groundMat.diffuseTexture = groundTexture;
     groundMat.specularColor = new BAB.Color3(0, 0, 0);
     ground.material = groundMat;
 
@@ -505,6 +548,55 @@ export class BabylonSceneManager {
     this.bunkerShieldMesh.metadata = meta;
   }
 
+  initStatusBeacons() {
+    const BAB = this.BAB;
+    const beaconConfigs = {
+      power: {
+        position: new BAB.Vector3(-11.5, 2.8, 0),
+        module: 'power_core',
+        label: 'Energía: Estado de los paneles solares y las baterías.'
+      },
+      agrodome: {
+        position: new BAB.Vector3(-7.5, 4.5, 6.5),
+        module: 'agrodome',
+        label: 'Invernadero: Estado de los cultivos y las reservas de comida.'
+      },
+      life_support: {
+        position: new BAB.Vector3(7.3, 4.8, 4.8),
+        module: 'life_support',
+        label: 'Soporte vital: Estado del agua, el oxígeno y el aire.'
+      },
+      shield: {
+        position: new BAB.Vector3(6.5, 3.0, -10.5),
+        module: 'shield_system',
+        label: 'Refugio: Estado de la protección ante la radiación.'
+      }
+    };
+
+    this.statusBeaconColors = {
+      nominal: new BAB.Color3(0.15, 0.9, 0.48),
+      warning: new BAB.Color3(1.0, 0.62, 0.12),
+      critical: new BAB.Color3(1.0, 0.16, 0.12)
+    };
+
+    Object.entries(beaconConfigs).forEach(([system, config]) => {
+      const mesh = BAB.MeshBuilder.CreateSphere(`statusBeacon_${system}`, {
+        diameter: 0.42,
+        segments: 4
+      }, this.scene);
+      mesh.position = config.position;
+      mesh.metadata = { module: config.module, label: config.label };
+
+      const material = new BAB.StandardMaterial(`statusBeaconMat_${system}`, this.scene);
+      material.diffuseColor = this.statusBeaconColors.nominal;
+      material.emissiveColor = this.statusBeaconColors.nominal;
+      material.disableLighting = true;
+      mesh.material = material;
+
+      this.statusBeacons[system] = { mesh, material, severity: 'nominal' };
+    });
+  }
+
   initMissionBeacon() {
     const BAB = this.BAB;
     // Central holographic mission terminal kiosk on the north plaza
@@ -674,15 +766,39 @@ export class BabylonSceneManager {
 
   initPicking() {
     this.scene.onPointerMove = (evt, pickInfo) => {
-      if (pickInfo.hit && pickInfo.pickedMesh && pickInfo.pickedMesh.metadata) {
+      const meta = pickInfo?.hit && pickInfo.pickedMesh?.metadata
+        ? pickInfo.pickedMesh.metadata
+        : null;
+
+      if (meta) {
         this.canvas.style.cursor = 'pointer';
       } else {
         this.canvas.style.cursor = 'default';
       }
+
+      const status = meta && SYSTEM_BY_MODULE[meta.module]
+        ? this.systemStatuses[SYSTEM_BY_MODULE[meta.module]]
+        : null;
+      const labelParts = meta?.label?.split(':') || [];
+      const target = meta ? {
+        module: meta.module,
+        title: labelParts[0],
+        description: labelParts.slice(1).join(':').trim(),
+        severity: status || null
+      } : null;
+      const targetKey = target
+        ? `${target.module}:${target.title}:${target.severity || ''}`
+        : null;
+
+      this.currentMapTarget = target;
+      if (targetKey !== this.currentMapTargetKey) {
+        this.currentMapTargetKey = targetKey;
+        this.onMapTargetChange?.(target);
+      }
     };
 
     this.scene.onPointerDown = (evt, pickInfo) => {
-      if (pickInfo.hit && pickInfo.pickedMesh && pickInfo.pickedMesh.metadata) {
+      if (pickInfo?.hit && pickInfo.pickedMesh?.metadata) {
         const meta = pickInfo.pickedMesh.metadata;
         if (this.onModuleClick) {
           this.onModuleClick(meta.module, meta.label);
@@ -726,20 +842,71 @@ export class BabylonSceneManager {
     if (!enabled) this.keys = {};
   }
 
+  setReducedMotion(enabled) {
+    this.reducedMotion = enabled;
+    if (this.dustSystem) {
+      if (enabled) this.dustSystem.stop();
+      else this.dustSystem.start();
+    }
+    if (enabled && this.roverAnim?.active) {
+      this.roverAnim.active = false;
+      this.roverGroup?.position?.set(3.8, 0, -6.5);
+    }
+  }
+
+  zoomCamera(direction) {
+    if (!this.camera) return;
+
+    const zoomFactor = direction < 0 ? 0.9 : 1.1;
+    this.camera.radius = Math.max(
+      this.camera.lowerRadiusLimit,
+      Math.min(this.camera.upperRadiusLimit, this.camera.radius * zoomFactor)
+    );
+  }
+
   syncGameState(state) {
     if (!state) return;
+
+    this.activeHazard = state.activeHazard || null;
+    this.radiationStorm = this.activeHazard?.type === 'solar_radiation';
+    this.isNight = Boolean(state.isNight);
+    this.powerFailure = state.resources.energy < 10;
+
+    const { systemStatuses } = getTelemetrySnapshot(state);
+    this.systemStatuses = systemStatuses;
+    if (this.currentMapTarget && SYSTEM_BY_MODULE[this.currentMapTarget.module]) {
+      const severity = systemStatuses[SYSTEM_BY_MODULE[this.currentMapTarget.module]];
+      if (severity !== this.currentMapTarget.severity) {
+        this.currentMapTarget = { ...this.currentMapTarget, severity };
+        this.currentMapTargetKey = `${this.currentMapTarget.module}:${this.currentMapTarget.title}:${severity}`;
+        this.onMapTargetChange?.(this.currentMapTarget);
+      }
+    }
+
+    Object.entries(this.statusBeacons).forEach(([system, beacon]) => {
+      const severity = systemStatuses[system];
+      beacon.severity = severity;
+      beacon.material.diffuseColor = this.statusBeaconColors[severity];
+      beacon.material.emissiveColor = this.statusBeaconColors[severity];
+    });
 
     if (this.hemiLight && this.sunLight) {
       if (state.isNight) {
         this.scene.clearColor = new this.BAB.Color4(0.04, 0.02, 0.05, 1.0);
-        this.hemiLight.intensity = 0.28;
+        this.hemiLight.intensity = this.powerFailure ? 0.08 : 0.28;
         this.sunLight.intensity = 0.22;
-        this.domeLights.forEach((l) => { l.intensity = 2.0; });
+        this.sunLight.diffuse = this.radiationStorm
+          ? new this.BAB.Color3(1.0, 0.62, 0.34)
+          : new this.BAB.Color3(1.0, 0.86, 0.72);
+        this.domeLights.forEach((l) => { l.intensity = this.powerFailure ? 0.04 : 2.0; });
       } else {
         this.scene.clearColor = new this.BAB.Color4(0.11, 0.04, 0.05, 1.0);
-        this.hemiLight.intensity = 0.85;
-        this.sunLight.intensity = 1.1;
-        this.domeLights.forEach((l) => { l.intensity = 1.2; });
+        this.hemiLight.intensity = this.powerFailure ? 0.22 : this.radiationStorm ? 0.62 : 0.85;
+        this.sunLight.intensity = this.radiationStorm ? 0.7 : 1.1;
+        this.sunLight.diffuse = this.radiationStorm
+          ? new this.BAB.Color3(1.0, 0.62, 0.34)
+          : new this.BAB.Color3(1.0, 0.86, 0.72);
+        this.domeLights.forEach((l) => { l.intensity = this.powerFailure ? 0.04 : 1.2; });
       }
     }
 
@@ -757,9 +924,20 @@ export class BabylonSceneManager {
       }
     });
 
-    const dust = state.dust || 15;
+    const dust = state.dust === undefined ? 15 : state.dust;
     if (this.dustSystem) {
-      this.dustSystem.emitRate = Math.max(12, Math.round(dust * 2.8));
+      const inDustStorm = this.activeHazard?.type === 'dust_storm';
+      this.dustSystem.emitRate = inDustStorm
+        ? Math.min(280, 150 + Math.round(dust))
+        : Math.max(12, Math.round(dust * 2.8));
+      this.dustSystem.minEmitPower = inDustStorm ? 3 : 1.5;
+      this.dustSystem.maxEmitPower = inDustStorm ? 6 : 3.5;
+      this.dustSystem.direction1 = inDustStorm
+        ? new this.BAB.Vector3(14, -0.15, -2)
+        : new this.BAB.Vector3(9, -0.3, -1);
+      this.dustSystem.direction2 = inDustStorm
+        ? new this.BAB.Vector3(20, 0.5, 2)
+        : new this.BAB.Vector3(14, 0.4, 1);
     }
     this.solarPanels.forEach(({ mat }) => {
       const dustFactor = Math.min(1, dust / 100);
@@ -768,7 +946,12 @@ export class BabylonSceneManager {
 
     if (this.bunkerShieldMesh) {
       this.bunkerShieldMesh.material.alpha = state.bunkerActive ? 0.35 : 0.0;
+      this.bunkerShieldMesh.material.emissiveColor = state.activeHazard?.type === 'solar_radiation'
+        ? new this.BAB.Color3(0.5, 0.8, 1.0)
+        : new this.BAB.Color3(0.1, 0.5, 0.9);
     }
+
+    this.astronautGroup?.setEnabled(!state.bunkerActive);
 
     if (state.roverTask === 'cleaning' && !this.roverAnim.active) {
       this.roverAnim.active = true;
@@ -790,30 +973,49 @@ export class BabylonSceneManager {
     const isMoving = moveX !== 0 || moveZ !== 0;
 
     if (isMoving) {
-      const len = Math.hypot(moveX, moveZ);
-      const speed = 0.16;
-      const nx = (moveX / len) * speed;
-      const nz = (moveZ / len) * speed;
+      const cameraForward = this.camera.target.subtract(this.camera.position);
+      cameraForward.y = 0;
+      cameraForward.normalize();
 
-      const nextX = Math.max(-15, Math.min(15, this.astronautGroup.position.x + nx));
-      const nextZ = Math.max(-14, Math.min(14, this.astronautGroup.position.z + nz));
+      const cameraRight = new this.BAB.Vector3(
+        cameraForward.z,
+        0,
+        -cameraForward.x
+      );
+      const movement = cameraRight.scale(moveX).add(cameraForward.scale(moveZ));
+      const len = movement.length();
+      const speed = 0.08;
+      const nx = (movement.x / len) * speed;
+      const nz = (movement.z / len) * speed;
+
+      const nextX = Math.max(-19, Math.min(19, this.astronautGroup.position.x + nx));
+      const nextZ = Math.max(-19, Math.min(19, this.astronautGroup.position.z + nz));
       this.astronautGroup.position.x = nextX;
       this.astronautGroup.position.z = nextZ;
 
       // Face direction of movement (visor faces -Z locally)
-      const targetAngle = Math.atan2(-moveX, -moveZ);
+      const targetAngle = Math.atan2(-nx, -nz);
       this.astronautGroup.rotation.y = targetAngle;
 
       // Walking animation
-      this.walkTime += 0.25;
-      this.astronautGroup.position.y = Math.abs(Math.sin(this.walkTime)) * 0.14;
-      if (this.astroLegs.left && this.astroLegs.right) {
+      if (this.reducedMotion) {
+        this.astronautGroup.position.y = 0;
+      } else {
+        this.walkTime += 0.25;
+        this.astronautGroup.position.y = Math.abs(Math.sin(this.walkTime)) * 0.14;
+      }
+      if (this.astroLegs.left && this.astroLegs.right && !this.reducedMotion) {
         this.astroLegs.left.rotation.x = Math.sin(this.walkTime) * 0.6;
         this.astroLegs.right.rotation.x = -Math.sin(this.walkTime) * 0.6;
+      } else if (this.reducedMotion && this.astroLegs.left && this.astroLegs.right) {
+        this.astroLegs.left.rotation.x = 0;
+        this.astroLegs.right.rotation.x = 0;
       }
     } else {
       // Idle pose
-      this.astronautGroup.position.y = Math.abs(Math.sin(Date.now() * 0.002)) * 0.06;
+      this.astronautGroup.position.y = this.reducedMotion
+        ? 0
+        : Math.abs(Math.sin(Date.now() * 0.002)) * 0.06;
       if (this.astroLegs.left && this.astroLegs.right) {
         this.astroLegs.left.rotation.x = 0;
         this.astroLegs.right.rotation.x = 0;
@@ -822,9 +1024,9 @@ export class BabylonSceneManager {
 
     // Smooth camera follow
     const camTarget = new this.BAB.Vector3(
-      this.astronautGroup.position.x * 0.45,
+      this.astronautGroup.position.x * 0.2,
       0.5,
-      this.astronautGroup.position.z * 0.45
+      this.astronautGroup.position.z * 0.2
     );
     this.camera.target = this.BAB.Vector3.Lerp(this.camera.target, camTarget, 0.08);
 
@@ -854,17 +1056,53 @@ export class BabylonSceneManager {
 
     this.updatePlayerMovement();
 
+    const stormTarget = this.activeHazard?.type === 'dust_storm' ? 1 : 0;
+    const stormStep = this.reducedMotion ? 1 : 0.025;
+    this.stormVisualIntensity += (stormTarget - this.stormVisualIntensity) * stormStep;
+    this.scene.fogDensity = this.baseFogDensity + this.stormVisualIntensity * 0.012;
+    this.scene.fogColor = this.BAB.Color3.Lerp(
+      this.baseFogColor,
+      new this.BAB.Color3(0.5, 0.2, 0.1),
+      this.stormVisualIntensity
+    );
+
+    const earthDistance = this.BAB.Vector3.Distance(this.camera.position, this.earth.position);
+    this.earth.scaling.setAll(earthDistance / this.earthReferenceDistance);
+
+    Object.values(this.statusBeacons).forEach(({ mesh, severity }) => {
+      const pulse = !this.reducedMotion && severity === 'critical'
+        ? 1 + (0.12 * (0.5 + 0.5 * Math.sin(t * 5)))
+        : 1;
+      mesh.scaling.setAll(pulse);
+    });
+
     this.domeLights.forEach((light, i) => {
-      const base = light.intensity > 1.5 ? 1.85 : 1.15;
-      light.intensity = base + Math.sin(t * 2.0 + i) * 0.15;
+      const base = this.isNight ? 1.85 : 1.15;
+      light.intensity = this.powerFailure
+        ? 0.04
+        : this.reducedMotion ? base : base + Math.sin(t * 2.0 + i) * 0.15;
     });
 
-    this.helperBots.forEach((b) => {
-      b.mesh.position.y = b.baseY + Math.sin(t * 1.5 + b.offset) * 0.12;
-      b.mesh.rotation.y += 0.015;
-    });
+    if (this.radiationStorm && !this.isNight && !this.powerFailure) {
+      this.sunLight.intensity = this.reducedMotion ? 0.7 : 0.68 + Math.sin(t * 0.3) * 0.04;
+    }
 
-    if (this.roverGroup && this.roverAnim.active) {
+    if (this.bunkerShieldMesh && this.activeHazard?.type === 'solar_radiation') {
+      this.bunkerShieldMesh.material.alpha = this.reducedMotion
+        ? (this.bunkerShieldMesh.material.alpha > 0 ? 0.58 : 0.0)
+        : (this.bunkerShieldMesh.material.alpha > 0
+          ? 0.54 + Math.sin(t * 1.4) * 0.06
+          : 0.0);
+    }
+
+    if (!this.reducedMotion) {
+      this.helperBots.forEach((b) => {
+        b.mesh.position.y = b.baseY + Math.sin(t * 1.5 + b.offset) * 0.12;
+        b.mesh.rotation.y += 0.015;
+      });
+    }
+
+    if (!this.reducedMotion && this.roverGroup && this.roverAnim.active) {
       this.roverAnim.phase += 0.018;
       const p = this.roverAnim.phase;
       if (p < Math.PI) {

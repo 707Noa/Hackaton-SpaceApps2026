@@ -1,9 +1,11 @@
 import React from 'react';
+import { getDailyResourceChanges } from '../../services/gameEngine.js';
 
 export default function PowerCoreView({ state, onExecuteAction, onOpenNasaModal }) {
   const { resources, dust, isNight, actionsRemaining, roverTask } = state;
-  const dustPenalty = Math.round(dust * 0.7);
-  const solarGenEstimate = Math.max(0, Math.round(28 * (1 - (dust / 100) * 0.7)));
+  const dailyChanges = getDailyResourceChanges(state);
+  const solarReduction = Math.round((1 - dailyChanges.solarGeneration / 28) * 100);
+  const energyBalance = dailyChanges.energy;
 
   return (
     <div className="module-panel pixel-box">
@@ -33,9 +35,19 @@ export default function PowerCoreView({ state, onExecuteAction, onOpenNasaModal 
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">GENERACIÓN ESTIMADA / SOL</div>
-          <div className="metric-value text-green">+{solarGenEstimate} UJ</div>
-          <div className="text-xs text-muted">Atenuación por polvo: -{dustPenalty}%</div>
+          <div className="metric-label">PRODUCCIÓN SOLAR / SOL</div>
+          <div className={`metric-value ${energyBalance < 0 ? 'text-red' : 'text-green'}`}>
+            +{dailyChanges.solarGeneration} UJ
+          </div>
+          <div className="text-xs text-muted">
+            Atenuación total: -{solarReduction}% · Base consume {dailyChanges.basePowerDraw} UJ
+          </div>
+          <div className={`text-xs ${energyBalance < 0 ? 'text-red' : 'text-green'}`}>
+            Balance esperado: {energyBalance > 0 ? '+' : ''}{energyBalance} UJ
+          </div>
+          {resources.energy < 10 && (
+            <div className="text-xs text-red">⚠️ Sin energía suficiente: el soporte vital se debilita.</div>
+          )}
         </div>
 
         <div className="metric-card">

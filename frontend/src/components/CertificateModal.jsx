@@ -1,18 +1,30 @@
 import React from 'react';
 
-export default function CertificateModal({ report, isGameOver, onRestart }) {
+export default function CertificateModal({
+  report,
+  isGameOver,
+  onRestart,
+  rescueAvailable = false,
+  onRescue
+}) {
   if (isGameOver) {
     return (
       <div className="modal-overlay">
         <div className="modal-content" style={{ borderColor: '#EF4444' }}>
           <div style={{ fontSize: '13px', color: '#EF4444', fontWeight: 'bold', borderBottom: '2px solid #EF4444', paddingBottom: '8px' }}>
-            🚨 EVACUACIÓN DE EMERGENCIA
+            🚨 MISIÓN EN EMERGENCIA
           </div>
           <div className="modal-desc">
-            ¡Un recurso vital ha llegado a cero!<br /><br />
-            La tripulación ha tenido que abordar el módulo de ascenso de emergencia. En el espacio, ningún recurso puede descuidarse.<br /><br />
-            ¡Aprende de este intento y vuelve a intentarlo!
+            La salud de la tripulación llegó a cero. La escasez de recursos y la radiación pueden acumularse con cada Sol.<br /><br />
+            {rescueAvailable
+              ? 'Puedes usar las reservas de emergencia una sola vez. Recuperarás a la tripulación, pero perderás 25 puntos de ciencia y 10 puntos de supervivencia.'
+              : 'El protocolo de rescate ya fue utilizado. Revisa tus decisiones y vuelve a intentarlo.'}
           </div>
+          {rescueAvailable && (
+            <button className="pixel-btn pixel-btn-green" onClick={onRescue}>
+              🚀 ACTIVAR RESCATE · −25 CIENCIA
+            </button>
+          )}
           <button className="pixel-btn pixel-btn-gold" onClick={onRestart}>
             🔄 REINTENTAR MISIÓN
           </button>

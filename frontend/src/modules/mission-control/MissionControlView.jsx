@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SolForecastPanel from '../../components/SolForecastPanel';
 
 export default function MissionControlView({ 
   state, 
@@ -52,6 +53,8 @@ export default function MissionControlView({
           ))}
         </div>
       </div>
+
+      <SolForecastPanel state={state} />
 
       {/* Campaign Status Metrics */}
       <div className="metrics-row">

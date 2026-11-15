@@ -13,6 +13,19 @@ export default function BabylonViewport({
   const managerRef = useRef(null);
   const [nearbyZone, setNearbyZone] = useState(null);
   const [mapTarget, setMapTarget] = useState(null);
+  const [perspective, setPerspective] = useState('third');
+  const [gyroState, setGyroState] = useState('off');
+
+  const toggleGyroscope = async () => {
+    const manager = managerRef.current;
+    if (!manager) return;
+    if (gyroState === 'on') {
+      manager.disableGyroscope();
+      setGyroState('off');
+      return;
+    }
+    setGyroState(await manager.enableGyroscope());
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,6 +44,8 @@ export default function BabylonViewport({
         setMapTarget(target);
       }
     );
+    manager.onPerspectiveChange = setPerspective;
+    manager.onGyroChange = setGyroState;
     managerRef.current = manager;
     manager.setReducedMotion(reducedMotion);
 
@@ -106,7 +121,30 @@ export default function BabylonViewport({
         </div>
       )}
 
-      <div className="viewport-zoom-controls" aria-label="Controles de zoom">
+      <div className="viewport-zoom-controls" aria-label="Controles de cámara">
+        <button
+          className="viewport-zoom-btn"
+          onClick={() => managerRef.current?.togglePerspective()}
+          aria-label={perspective === 'first' ? 'Cambiar a tercera persona' : 'Cambiar a primera persona'}
+          title="Cambiar vista (P)"
+        >
+          {perspective === 'first' ? '🧍' : '👁'}
+        </button>
+        <button
+          className="viewport-zoom-btn"
+          onClick={toggleGyroscope}
+          aria-pressed={gyroState === 'on'}
+          aria-label="Activar o desactivar el giroscopio"
+          title={{
+            on: 'Giroscopio activado: mueve tu dispositivo para mirar',
+            off: 'Activar giroscopio (mover el dispositivo para mirar)',
+            denied: 'Permiso del giroscopio denegado',
+            unsupported: 'Este dispositivo no tiene giroscopio'
+          }[gyroState]}
+          style={{ opacity: gyroState === 'denied' || gyroState === 'unsupported' ? 0.5 : 1 }}
+        >
+          {gyroState === 'on' ? '🧭✓' : '🧭'}
+        </button>
         <button
           className="viewport-zoom-btn"
           onClick={() => managerRef.current?.zoomCamera(-1)}
@@ -159,7 +197,7 @@ export default function BabylonViewport({
         <span className="hint-text">
           {state.bunkerActive
             ? 'Tripulación en el búnker: usa los módulos y abre el refugio cuando pase el riesgo.'
-            : 'WASD o Flechas: Caminar • [E]: Entrar • Arrastra: Rotar • +/-: Zoom'}
+            : 'WASD o Flechas: Caminar • [E]: Entrar • [P]: Cambiar vista • Arrastra: Rotar • +/-: Zoom'}
         </span>
       </div>
 

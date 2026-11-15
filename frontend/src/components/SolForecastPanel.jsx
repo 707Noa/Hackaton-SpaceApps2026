@@ -1,10 +1,10 @@
-import React from 'react';
+﻿import React from 'react';
 import { getNextSolForecast } from '../services/gameEngine';
 
 const forecastMetrics = [
   { id: 'energy', label: 'Energía', icon: '⚡' },
   { id: 'water', label: 'Agua', icon: '💧' },
-  { id: 'oxygen', label: 'Oxígeno', icon: '🫁' },
+  { id: 'oxygen', label: 'Oxígeno', icon: 'O₂' },
   { id: 'food', label: 'Comida', icon: '🌱' },
   { id: 'co2', label: 'CO₂', icon: '💨' },
   { id: 'dust', label: 'Polvo', icon: '🌪️' }
@@ -136,3 +136,4 @@ export default function SolForecastPanel({ state }) {
     </section>
   );
 }
+

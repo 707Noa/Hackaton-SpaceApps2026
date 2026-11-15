@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { getTelemetrySnapshot } from '../services/telemetryStatus';
 
 export default function ResourceDistributionPanel({ state, onSelectModule }) {
@@ -17,68 +17,68 @@ export default function ResourceDistributionPanel({ state, onSelectModule }) {
     {
       id: 'energy',
       icon: '⚡',
-      name: 'Energía',
-      hint: 'Máquinas y luces',
+      name: 'Electricidad',
+      hint: 'Luz y máquinas',
       val: resources.energy,
       unit: '%',
       status: statusStyles[metrics.energy.severity],
       metric: metrics.energy,
-      moduleLabel: 'Abrir energía'
+      moduleLabel: 'Paneles solares'
     },
     {
       id: 'water',
       icon: '💧',
       name: 'Agua',
-      hint: 'Beber y cultivar',
+      hint: 'Beber y plantas',
       val: resources.water,
       unit: '%',
       status: statusStyles[metrics.water.severity],
       metric: metrics.water,
-      moduleLabel: 'Abrir soporte vital'
+      moduleLabel: 'Sistema de agua'
     },
     {
       id: 'oxygen',
-      icon: '🫁',
-      name: 'Oxígeno',
-      hint: 'Aire para respirar',
+      icon: 'O₂',
+      name: 'Aire',
+      hint: 'Para respirar',
       val: resources.oxygen,
       unit: '%',
       status: statusStyles[metrics.oxygen.severity],
       metric: metrics.oxygen,
-      moduleLabel: 'Abrir soporte vital'
+      moduleLabel: 'Aire limpio'
     },
     {
       id: 'co2',
-      icon: '⚠️',
-      name: 'Aire CO₂',
-      hint: 'Mantenerlo bajo',
+      icon: '💨',
+      name: 'Aire sucio',
+      hint: 'Mantener bajo',
       val: resources.co2,
       unit: '%',
       status: statusStyles[metrics.co2.severity],
       metric: metrics.co2,
-      moduleLabel: 'Abrir filtros de aire'
+      moduleLabel: 'Filtros de aire'
     },
     {
       id: 'food',
       icon: '🌱',
       name: 'Comida',
-      hint: 'Comida de la tripulación',
+      hint: 'Para comer',
       val: resources.food,
       unit: '%',
       status: statusStyles[metrics.food.severity],
       metric: metrics.food,
-      moduleLabel: 'Abrir invernadero'
+      moduleLabel: 'Huerto'
     },
     {
       id: 'shield',
       icon: '🛡️',
-      name: 'Escudo',
-      hint: 'Protección ante radiación',
+      name: 'Protección',
+      hint: 'Defensa solar',
       val: shield,
       unit: '%',
       status: statusStyles[metrics.shield.severity],
       metric: metrics.shield,
-      moduleLabel: 'Abrir refugio'
+      moduleLabel: 'Búnker'
     }
   ];
 
@@ -126,10 +126,10 @@ export default function ResourceDistributionPanel({ state, onSelectModule }) {
             </button>
             {expandedMetric === item.id && (
               <div className="resource-detail" id={`resource-detail-${item.id}`}>
-                <p>{item.metric.explanation}</p>
+                <p className="resource-detail-explanation">{item.metric.explanation}</p>
                 {item.metric.severity !== 'nominal' && (
-                  <p className="resource-detail-recommendation">
-                    <strong>Sugerencia:</strong> {item.metric.message}
+                  <p className="resource-detail-tip">
+                    💡 {item.metric.message}
                   </p>
                 )}
                 <button
@@ -140,7 +140,7 @@ export default function ResourceDistributionPanel({ state, onSelectModule }) {
                     item.metric.severity === 'nominal' ? null : item.metric.message
                   )}
                 >
-                  {item.moduleLabel} →
+                  Abrir {item.moduleLabel} →
                 </button>
               </div>
             )}
@@ -167,3 +167,4 @@ export default function ResourceDistributionPanel({ state, onSelectModule }) {
     </div>
   );
 }
+

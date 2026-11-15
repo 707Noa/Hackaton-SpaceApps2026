@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 export default function LifeSupportView({ state, onExecuteAction, onOpenNasaModal }) {
   const { resources, actionsRemaining } = state;
@@ -62,8 +62,8 @@ export default function LifeSupportView({ state, onExecuteAction, onOpenNasaModa
           onClick={() => onExecuteAction('life_support', 'moxie')}
           disabled={actionsRemaining <= 0 || resources.energy < 12}
         >
-          🫁 Activar Electrólisis MOXIE
-          <span className="action-cost">Costo: 12⚡ · Genera +18🫁 de Oxígeno</span>
+          O₂ Activar Electrólisis MOXIE
+          <span className="action-cost">Costo: 12⚡ · Genera +18 O₂ de Oxígeno</span>
         </button>
 
         <button
@@ -87,3 +87,4 @@ export default function LifeSupportView({ state, onExecuteAction, onOpenNasaModa
     </div>
   );
 }
+

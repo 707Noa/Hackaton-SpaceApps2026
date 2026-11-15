@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { INITIAL_GAME_STATE, SOL_EVENTS } from './data/gameData';
+﻿import React, { useState, useEffect } from 'react';
+import {
+  INITIAL_GAME_STATE,
+  SOL_EVENTS,
+  MISSION_CHALLENGES,
+  findChallengeForAction
+} from './data/gameData';
 import { sounds } from './services/audioService';
 import {
   executeModuleAction,
@@ -23,6 +28,7 @@ import ShieldSystemView from './modules/shield-system/ShieldSystemView';
 import MissionControlView from './modules/mission-control/MissionControlView';
 
 import MissionsModal from './components/MissionsModal';
+import MissionChallenge from './components/MissionChallenge';
 import EventModal from './components/EventModal';
 import NasaScienceModal from './components/NasaScienceModal';
 import CertificateModal from './components/CertificateModal';
@@ -34,6 +40,7 @@ export default function App() {
   const [showMissions, setShowMissions] = useState(false);
   const [activeEvent, setActiveEvent] = useState(null);
   const [activeNasaKey, setActiveNasaKey] = useState(null);
+  const [activeChallenge, setActiveChallenge] = useState(null);
   const [speechBubble, setSpeechBubble] = useState(null);
   const [actionFeedback, setActionFeedback] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -44,7 +51,7 @@ export default function App() {
   );
 
   const hasModalOpen = Boolean(
-    showMissions || activeEvent || activeNasaKey || gameState.victory || gameState.gameOver
+    showMissions || activeEvent || activeNasaKey || activeChallenge || gameState.victory || gameState.gameOver
   );
 
   // Keyboard shortcut 'M' to toggle Missions Modal
@@ -69,7 +76,7 @@ export default function App() {
     const trackedResources = [
       { key: 'energy', label: 'Energía', icon: '⚡' },
       { key: 'water', label: 'Agua', icon: '💧' },
-      { key: 'oxygen', label: 'Oxígeno', icon: '🫁' },
+      { key: 'oxygen', label: 'Oxígeno', icon: 'O₂' },
       { key: 'food', label: 'Comida', icon: '🌱' },
       { key: 'co2', label: 'CO₂', icon: '💨' },
       { key: 'dust', label: 'Polvo', icon: '🌪️' },
@@ -121,12 +128,46 @@ export default function App() {
     setIsMuted(muted);
   };
 
-  const handleExecuteAction = (moduleName, actionType, payload) => {
+  const runModuleAction = (moduleName, actionType, payload) => {
     sounds.playClick();
     const { nextState, bubble } = executeModuleAction(gameState, moduleName, actionType, payload);
     setGameState(nextState);
     showActionFeedback(gameState, nextState, bubble);
     if (bubble) showBubble(bubble);
+  };
+
+  const handleExecuteAction = (moduleName, actionType, payload) => {
+    const challenge = findChallengeForAction(gameState, moduleName, actionType);
+    if (challenge) {
+      sounds.playClick();
+      setActiveChallenge({ ...challenge, moduleName, actionType, payload });
+      return;
+    }
+    runModuleAction(moduleName, actionType, payload);
+  };
+
+  const handlePlayChallenge = (missionId) => {
+    const config = MISSION_CHALLENGES[missionId];
+    if (!config || gameState.completedMissions.includes(missionId)) return;
+    if (gameState.actionsRemaining <= 0) {
+      sounds.playAlert();
+      showBubble('¡Ya usaste tus 2 acciones de hoy! Presiona "Siguiente Sol" para jugar el reto.');
+      return;
+    }
+    sounds.playClick();
+    setActiveChallenge({
+      missionId,
+      game: config.game,
+      moduleName: config.module,
+      actionType: config.action,
+      payload: config.payload
+    });
+  };
+
+  const finishChallenge = () => {
+    const { moduleName, actionType, payload } = activeChallenge;
+    setActiveChallenge(null);
+    runModuleAction(moduleName, actionType, payload);
   };
 
   const handleAdvanceSol = () => {
@@ -190,7 +231,7 @@ export default function App() {
     { id: 'mission_control', label: '🛰️ Control' },
     { id: 'power_core', label: '⚡ Energía' },
     { id: 'agrodome', label: '🌱 Huerta' },
-    { id: 'life_support', label: '🫁 Aire/Agua' },
+    { id: 'life_support', label: 'O₂ Aire/Agua' },
     { id: 'shield_system', label: '🛡️ Escudo' }
   ];
 
@@ -304,7 +345,21 @@ export default function App() {
         <MissionsModal
           completedMissions={gameState.completedMissions}
           onSelectModule={(mod) => handle3DModuleSelect(mod)}
+          onPlayChallenge={handlePlayChallenge}
           onClose={() => setShowMissions(false)}
+        />
+      )}
+
+      {/* Interactive mission challenge */}
+      {activeChallenge && (
+        <MissionChallenge
+          missionId={activeChallenge.missionId}
+          game={activeChallenge.game}
+          garden={gameState.garden}
+          onGardenChange={(garden) => setGameState((prev) => ({ ...prev, garden }))}
+          onComplete={finishChallenge}
+          onSkip={finishChallenge}
+          onClose={() => setActiveChallenge(null)}
         />
       )}
 
@@ -346,3 +401,4 @@ export default function App() {
     </div>
   );
 }
+

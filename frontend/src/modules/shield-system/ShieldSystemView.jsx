@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaModal }) {
   const { shield, bunkerActive, resources, actionsRemaining } = state;
@@ -72,7 +72,7 @@ export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaMod
           disabled={actionsRemaining <= 0 || resources.oxygen < 6 || resources.water < 6 || bunkerActive}
         >
           🥾 Planificar Expedición EVA al Delta Antiguo
-          <span className="action-cost">Costo: 6🫁 · 6💧 · Suma +18 Ciencia</span>
+          <span className="action-cost">Costo: 6 O₂ · 6💧 · Suma +18 Ciencia</span>
         </button>
 
         <button
@@ -87,3 +87,4 @@ export default function ShieldSystemView({ state, onExecuteAction, onOpenNasaMod
     </div>
   );
 }
+

@@ -8,11 +8,11 @@ export default defineConfig({
     open: false
   },
   build: {
+    chunkSizeWarningLimit: 8000,
     rollupOptions: {
-      external: ['@babylonjs/core'],
       output: {
-        globals: {
-          '@babylonjs/core': 'BABYLON'
+        manualChunks: {
+          babylon: ['@babylonjs/core']
         }
       }
     }

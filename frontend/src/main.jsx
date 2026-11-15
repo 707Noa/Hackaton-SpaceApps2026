@@ -1,5 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import '@fontsource/press-start-2p';
+import '@fontsource/vt323';
+import '@fontsource/chakra-petch/500.css';
+import '@fontsource/chakra-petch/700.css';
 import App from './App.jsx';
 import './index.css';
 

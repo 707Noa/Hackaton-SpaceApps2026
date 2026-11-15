@@ -1,7 +1,8 @@
-import React from 'react';
+﻿import React from 'react';
 import { MISSIONS_LIST } from '../data/gameData';
+import MissionIcon from './MissionIcon';
 
-export default function MissionsModal({ completedMissions = [], onSelectModule, onClose }) {
+export default function MissionsModal({ completedMissions = [], onSelectModule, onPlayChallenge, onClose }) {
   const completedCount = completedMissions.length;
 
   return (
@@ -31,7 +32,7 @@ export default function MissionsModal({ completedMissions = [], onSelectModule, 
                 key={mission.id} 
                 className={`mission-row-card ${isDone ? 'mission-done' : ''}`}
               >
-                <div className="mission-icon-badge">{mission.icon}</div>
+                <div className="mission-icon-badge"><MissionIcon icon={mission.icon} /></div>
                 <div className="mission-row-body">
                   <div className="mission-row-top">
                     <strong className="mission-row-title">{mission.title}</strong>
@@ -43,16 +44,28 @@ export default function MissionsModal({ completedMissions = [], onSelectModule, 
                   <div className="mission-row-tip">💡 Dato NASA: {mission.tip}</div>
                 </div>
                 {!isDone && (
-                  <button
-                    className="pixel-btn pixel-btn-cyan text-xs"
-                    style={{ whiteSpace: 'nowrap', alignSelf: 'center' }}
-                    onClick={() => {
-                      onSelectModule(mission.module);
-                      onClose();
-                    }}
-                  >
-                    Ir a {mission.moduleLabel.split(' ')[0]}
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignSelf: 'center' }}>
+                    <button
+                      className="pixel-btn pixel-btn-gold text-xs"
+                      style={{ whiteSpace: 'nowrap' }}
+                      onClick={() => {
+                        onClose();
+                        onPlayChallenge?.(mission.id);
+                      }}
+                    >
+                      🎮 Jugar reto
+                    </button>
+                    <button
+                      className="pixel-btn pixel-btn-cyan text-xs"
+                      style={{ whiteSpace: 'nowrap' }}
+                      onClick={() => {
+                        onSelectModule(mission.module);
+                        onClose();
+                      }}
+                    >
+                      Ir a {mission.moduleLabel.split(' ')[0]}
+                    </button>
+                  </div>
                 )}
               </div>
             );
@@ -71,3 +84,4 @@ export default function MissionsModal({ completedMissions = [], onSelectModule, 
     </div>
   );
 }
+

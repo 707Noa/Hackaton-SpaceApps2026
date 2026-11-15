@@ -1,4 +1,4 @@
-const severityOrder = {
+﻿const severityOrder = {
   nominal: 0,
   warning: 1,
   critical: 2
@@ -29,15 +29,15 @@ export function getTelemetrySnapshot(state) {
     {
       id: 'oxygen',
       label: 'OXÍGENO',
-      icon: '🫁',
+      icon: 'O₂',
       value: resources.oxygen,
       direction: 'below',
       warningAt: 40,
       criticalAt: 20,
       module: 'life_support',
-      title: 'Oxígeno bajo',
-      message: 'Activa MOXIE o revisa el soporte vital.',
-      explanation: 'La tripulación necesita oxígeno para respirar.'
+      title: 'Aire bajo',
+      message: '¡El equipo necesita aire! Abre la máquina de oxígeno.',
+      explanation: 'Sin aire, ¡los astronautas no pueden respirar!'
     },
     {
       id: 'energy',
@@ -48,9 +48,9 @@ export function getTelemetrySnapshot(state) {
       warningAt: 40,
       criticalAt: 20,
       module: 'power_core',
-      title: 'Energía baja',
-      message: 'Revisa el consumo y los paneles solares.',
-      explanation: 'La energía hace funcionar las máquinas; el polvo reduce lo que producen los paneles.'
+      title: 'Electricidad baja',
+      message: '¡Se está acabando la electricidad! Limpia los paneles solares.',
+      explanation: 'Los paneles solares generan la electricidad que hace funcionar todo.'
     },
     {
       id: 'water',
@@ -61,22 +61,22 @@ export function getTelemetrySnapshot(state) {
       warningAt: 40,
       criticalAt: 20,
       module: 'life_support',
-      title: 'Reserva de agua baja',
-      message: 'Revisa el reciclador de agua.',
-      explanation: 'El agua sirve para la tripulación y para cuidar las plantas.'
+      title: 'Agua baja',
+      message: '¡El equipo necesita agua para beber y regar las plantas!',
+      explanation: 'El agua es muy importante para beber y para el huerto.'
     },
     {
       id: 'co2',
-      label: 'CO₂',
+      label: 'AIRE',
       icon: '💨',
       value: resources.co2,
       direction: 'above',
       warningAt: 25,
       criticalAt: 40,
       module: 'life_support',
-      title: 'CO₂ elevado',
-      message: 'Activa los filtros de aire.',
-      explanation: 'Demasiado CO₂ hace que el aire de la base sea menos seguro.'
+      title: 'Aire malo',
+      message: '¡El aire está sucio! Enciende los filtros para limpiarlo.',
+      explanation: 'El aire sucio es malo para los astronautas. ¡Necesitamos limpiadores de aire!'
     },
     {
       id: 'food',
@@ -87,9 +87,9 @@ export function getTelemetrySnapshot(state) {
       warningAt: 35,
       criticalAt: 15,
       module: 'agrodome',
-      title: 'Raciones bajas',
-      message: 'Revisa los cultivos del invernadero.',
-      explanation: 'La comida mantiene a la tripulación sana durante la misión.'
+      title: 'Comida baja',
+      message: '¡El equipo tiene hambre! Cultiva más plantas en el huerto.',
+      explanation: 'Los astronautas necesitan comer para mantenerse fuertes.'
     },
     {
       id: 'shield',
@@ -100,9 +100,9 @@ export function getTelemetrySnapshot(state) {
       warningAt: 40,
       criticalAt: 20,
       module: 'shield_system',
-      title: 'Protección debilitada',
-      message: 'Refuerza el refugio marciano.',
-      explanation: 'El regolito —la tierra de Marte— ayuda a proteger a la tripulación de la radiación.'
+      title: 'Protección débil',
+      message: '¡La protección está baja! Refuerza el búnker de tierra marciana.',
+      explanation: 'El búnker protege a los astronautas de los rayos malos del Sol.'
     },
     {
       id: 'dust',
@@ -113,22 +113,22 @@ export function getTelemetrySnapshot(state) {
       warningAt: 40,
       criticalAt: 70,
       module: 'power_core',
-      title: 'Polvo en los paneles',
-      message: 'Envía el rover a limpiar los paneles solares.',
-      explanation: 'El polvo cubre los paneles y reduce la electricidad que producen.'
+      title: 'Mucho polvo',
+      message: '¡El polvo cubrió los paneles! Envía el rover a limpiar.',
+      explanation: 'El polvo marciano tapa los paneles y no entra el Sol.'
     },
     {
       id: 'crew',
-      label: 'TRIPULACIÓN',
+      label: 'ASTRONAUTAS',
       icon: '🧑‍🚀',
       value: crew.health,
       direction: 'below',
       warningAt: 60,
       criticalAt: 35,
       module: 'life_support',
-      title: 'Salud de la tripulación en riesgo',
-      message: 'Revisa el agua, el oxígeno y la energía.',
-      explanation: 'La salud de la tripulación depende de que los sistemas vitales funcionen.'
+      title: 'Astronautas mal',
+      message: '¡Los astronautas no se sienten bien! Asegúrate de que todos los sistemas funcionen.',
+      explanation: 'Los astronautas están sanos si tienen aire, agua, comida y energía.'
     }
   ].map((metric, order) => ({
     ...metric,
@@ -170,3 +170,4 @@ export function getTelemetrySnapshot(state) {
     }
   };
 }
+

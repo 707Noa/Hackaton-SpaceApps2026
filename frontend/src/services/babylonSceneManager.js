@@ -5,6 +5,7 @@
 // - Proximity detection to interactive Mars modules + [E] key interaction
 // - Dynamic day/night lighting, growing crops, animated rover, and dust particles
 
+import * as BABYLON from '@babylonjs/core';
 import {
   createMarsGroundTexture,
   createSolarPanelTexture,
@@ -28,12 +29,7 @@ export class BabylonSceneManager {
     this.onProximityChange = onProximityChange;
     this.onMapTargetChange = onMapTargetChange;
 
-    const BAB = window.BABYLON;
-    if (!BAB) {
-      console.error('Babylon.js runtime not loaded');
-      return;
-    }
-
+    const BAB = BABYLON;
     this.BAB = BAB;
     this.engine = new BAB.Engine(canvas, false, { preserveDrawingBuffer: true, stencil: true });
     this.engine.setHardwareScalingLevel(2.5);
@@ -49,9 +45,15 @@ export class BabylonSceneManager {
     this.roverGroup = null;
     this.astronautGroup = null;
     this.astroLegs = { left: null, right: null };
+    this.astroArms = { left: null, right: null, gloveL: null, gloveR: null };
     this.helperBots = [];
     this.dustSystem = null;
     this.roverAnim = { active: false, phase: 0 };
+    this.collisionObstacles = [];
+    this.collisionRects = [];
+    this.collisionRings = [];
+    this.rooms = [];
+    this.fpYawInitialized = false;
 
     // Keyboard & movement state
     this.keys = {};
@@ -69,14 +71,15 @@ export class BabylonSceneManager {
     this.currentMapTargetKey = null;
     this.currentMapTarget = null;
     this.systemStatuses = {};
+    this.perspective = 'third'; // 'first' or 'third'
     this.interactiveZones = [
-      { module: 'agrodome', title: 'Invernadero Agrodome', x: -7.5, z: 6.5, radius: 5.0 },
-      { module: 'agrodome', title: 'Invernadero Agrodome', x: -7.5, z: -6.5, radius: 5.0 },
+      { module: 'agrodome', title: 'Invernadero Agrodome', x: -22, z: 13, radius: 8.5 },
+      { module: 'agrodome', title: 'Invernadero Agrodome', x: -22, z: -13, radius: 8.5 },
       { module: 'power_core', title: 'Paneles Solares (Power Core)', x: -11.5, z: 0.5, radius: 4.5 },
       { module: 'power_core', title: 'Rover & Energía', x: 3.8, z: -6.5, radius: 3.2 },
-      { module: 'life_support', title: 'Hábitat (Life Support)', x: 7.3, z: 4.8, radius: 4.8 },
-      { module: 'life_support', title: 'Laboratorio MOXIE (Life Support)', x: 8.0, z: -2.5, radius: 4.8 },
-      { module: 'shield_system', title: 'Búnker de Regolito (Shield)', x: 6.5, z: -10.5, radius: 4.2 },
+      { module: 'life_support', title: 'Hábitat (Life Support)', x: 20, z: 12, radius: 8.5 },
+      { module: 'life_support', title: 'Laboratorio MOXIE (Life Support)', x: 22, z: -6, radius: 8.5 },
+      { module: 'shield_system', title: 'Búnker de Regolito (Shield)', x: 6, z: -22, radius: 8.0 },
       { module: 'mission_control', title: 'Control de Misión y Antena', x: 0.0, z: 3.5, radius: 3.0 }
     ];
 
@@ -93,6 +96,7 @@ export class BabylonSceneManager {
     this.initAstronautAndBots();
     this.initMissionBeacon();
     this.initDustParticles();
+    this.initCollisionObstacles();
     this.initPicking();
     this.initKeyboard();
 
@@ -115,8 +119,17 @@ export class BabylonSceneManager {
       new BAB.Vector3(0, 0.5, 0),
       this.scene
     );
+    this.cameraFocus = new BAB.TransformNode('cameraFocus', this.scene);
+    this.cameraFocus.position = new BAB.Vector3(0, 1, 0);
+    this.camera.lockedTarget = this.cameraFocus;
     this.camera.attachControl(this.canvas, true);
     this.camera.inputs.removeByType('ArcRotateCameraMouseWheelInput');
+
+    this.fpCamera = new BAB.UniversalCamera('firstPersonCam', new BAB.Vector3(0, 1.75, 0), this.scene);
+    this.fpCamera.minZ = 0.1;
+    this.fpCamera.fov = 1.05;
+    this.fpCamera.inputs.removeByType('FreeCameraKeyboardMoveInput');
+    this.fpCamera.angularSensibility = 3000;
     this.camera.lowerRadiusLimit = 14;
     this.camera.upperRadiusLimit = 42;
     this.camera.lowerBetaLimit = 0.35;
@@ -204,9 +217,9 @@ export class BabylonSceneManager {
       const vx = positions[i];
       const vz = positions[i + 2];
       const dist = Math.hypot(vx, vz);
-      const insideOutpostGround = Math.abs(vx) <= 20 && Math.abs(vz) <= 20;
-      if (dist > 17.5 && !insideOutpostGround) {
-        const edgeFactor = Math.min(1, (dist - 17.5) / 28);
+      const insideOutpostGround = Math.abs(vx) <= 40 && Math.abs(vz) <= 40;
+      if (!insideOutpostGround) {
+        const edgeFactor = Math.min(1, (Math.max(Math.abs(vx), Math.abs(vz)) - 40) / 14);
         const angle = Math.atan2(vz, vx);
         // Smooth undulating crater rim + rolling sand dunes + flat-topped mesa ridges
         const dunes = Math.sin(vx * 0.14) * Math.cos(vz * 0.14) * 1.4;
@@ -224,11 +237,11 @@ export class BabylonSceneManager {
     outerGround.material = outerMat;
 
     // Inner walkable base terrain with crisp pixel-art paths
-    const groundSize = 40;
+    const groundSize = 80;
     const ground = BAB.MeshBuilder.CreateGround('marsTerrain', {
       width: groundSize,
       height: groundSize,
-      subdivisions: 8
+      subdivisions: 16
     }, this.scene);
     const groundMat = new BAB.StandardMaterial('groundMat', this.scene);
     const groundTexture = createMarsGroundTexture(BAB, this.scene);
@@ -281,9 +294,9 @@ export class BabylonSceneManager {
 
     // Rounded / weathered flat-topped Jezero sedimentary boulders (no pointy pyramids)
     const rockCoords = [
-      [-4.2, -1.2, 1.2], [-14.5, 9.5, 1.1], [2.5, 10.5, 0.9],
-      [14.2, -4.5, 1.2], [-14.0, -11.5, 1.3], [1.8, -11.2, 1.0],
-      [-2.8, -9.2, 0.8], [13.5, 8.2, 1.1]
+      [-4.2, -1.2, 1.2], [-12.0, 10.0, 1.1], [2.5, 10.5, 0.9],
+      [12.0, -3.5, 1.2], [-12.0, -10.0, 1.3], [1.8, -11.2, 1.0],
+      [-2.8, -9.2, 0.8], [12.0, 5.0, 1.1]
     ];
     rockCoords.forEach(([rx, rz, scale], idx) => {
       const rock = BAB.MeshBuilder.CreateSphere(`marsRock_${idx}`, {
@@ -300,41 +313,47 @@ export class BabylonSceneManager {
   initBiodomes() {
     const BAB = this.BAB;
     const domeCoords = [
-      { id: 'north', x: -7.5, z: 6.5 },
-      { id: 'south', x: -7.5, z: -6.5 }
+      { id: 'north', x: -22, z: 13 },
+      { id: 'south', x: -22, z: -13 }
     ];
+    const domeRadius = 7;
+    const domeArc = 0.92;
+    const gapHalfAngle = Math.PI * (1 - domeArc);
 
     domeCoords.forEach((cfg) => {
+      const doorAngle = Math.atan2(-cfg.z, -cfg.x);
+      const domeRotationY = gapHalfAngle - doorAngle;
+
       const base = BAB.MeshBuilder.CreateCylinder(`domeBase_${cfg.id}`, {
-        diameter: 7.4,
-        height: 0.6,
-        tessellation: 16
+        diameter: domeRadius * 2 + 0.8,
+        height: 0.1,
+        tessellation: 32
       }, this.scene);
-      base.position = new BAB.Vector3(cfg.x, 0.3, cfg.z);
+      base.position = new BAB.Vector3(cfg.x, 0.05, cfg.z);
       const baseMat = new BAB.StandardMaterial(`domeBaseMat_${cfg.id}`, this.scene);
       baseMat.diffuseColor = new BAB.Color3(0.55, 0.56, 0.62);
       baseMat.specularColor = new BAB.Color3(0, 0, 0);
       base.material = baseMat;
 
-      const soil = BAB.MeshBuilder.CreateDisc(`domeSoil_${cfg.id}`, { radius: 3.3, tessellation: 16 }, this.scene);
+      const soil = BAB.MeshBuilder.CreateDisc(`domeSoil_${cfg.id}`, { radius: domeRadius - 0.6, tessellation: 32 }, this.scene);
       soil.rotation.x = Math.PI / 2;
-      soil.position = new BAB.Vector3(cfg.x, 0.61, cfg.z);
+      soil.position = new BAB.Vector3(cfg.x, 0.11, cfg.z);
       const soilMat = new BAB.StandardMaterial(`domeSoilMat_${cfg.id}`, this.scene);
       soilMat.diffuseColor = new BAB.Color3(0.45, 0.25, 0.14);
       soilMat.specularColor = new BAB.Color3(0, 0, 0);
       soil.material = soilMat;
 
-      const lamp = BAB.MeshBuilder.CreateSphere(`domeLamp_${cfg.id}`, { diameter: 0.75, segments: 6 }, this.scene);
-      lamp.position = new BAB.Vector3(cfg.x, 1.0, cfg.z);
+      const lamp = BAB.MeshBuilder.CreateSphere(`domeLamp_${cfg.id}`, { diameter: 1.0, segments: 6 }, this.scene);
+      lamp.position = new BAB.Vector3(cfg.x, 6.0, cfg.z);
       const lampMat = new BAB.StandardMaterial(`domeLampMat_${cfg.id}`, this.scene);
       lampMat.emissiveColor = new BAB.Color3(1.0, 0.72, 0.2);
       lampMat.disableLighting = true;
       lamp.material = lampMat;
 
-      const ptLight = new BAB.PointLight(`domePt_${cfg.id}`, new BAB.Vector3(cfg.x, 2.2, cfg.z), this.scene);
+      const ptLight = new BAB.PointLight(`domePt_${cfg.id}`, new BAB.Vector3(cfg.x, 5.0, cfg.z), this.scene);
       ptLight.diffuse = new BAB.Color3(1.0, 0.75, 0.35);
       ptLight.intensity = 1.2;
-      ptLight.range = 8;
+      ptLight.range = 20;
       this.domeLights.push(ptLight);
 
       const plantMat = new BAB.StandardMaterial(`plantMat_${cfg.id}`, this.scene);
@@ -342,28 +361,41 @@ export class BabylonSceneManager {
       plantMat.emissiveColor = new BAB.Color3(0.06, 0.2, 0.08);
 
       for (let p = 0; p < 6; p++) {
-        const angle = (p / 6) * Math.PI * 2;
-        const px = cfg.x + Math.cos(angle) * 2.0;
-        const pz = cfg.z + Math.sin(angle) * 2.0;
+        const angle = (p / 6) * Math.PI * 2 + Math.PI / 6;
+        const px = cfg.x + Math.cos(angle) * 4.0;
+        const pz = cfg.z + Math.sin(angle) * 4.0;
 
-        const tray = BAB.MeshBuilder.CreateBox(`tray_${cfg.id}_${p}`, { width: 1.0, height: 0.35, depth: 0.7 }, this.scene);
-        tray.position = new BAB.Vector3(px, 0.75, pz);
+        const tray = BAB.MeshBuilder.CreateBox(`tray_${cfg.id}_${p}`, { width: 1.5, height: 0.5, depth: 1.0 }, this.scene);
+        tray.position = new BAB.Vector3(px, 0.35, pz);
         tray.rotation.y = -angle;
         tray.material = baseMat;
 
-        const plant = BAB.MeshBuilder.CreateBox(`crop_${cfg.id}_${p}`, { width: 0.75, height: 0.85, depth: 0.5 }, this.scene);
-        plant.position = new BAB.Vector3(px, 1.15, pz);
+        const plant = BAB.MeshBuilder.CreateBox(`crop_${cfg.id}_${p}`, { width: 1.1, height: 1.2, depth: 0.7 }, this.scene);
+        plant.position = new BAB.Vector3(px, 1.0, pz);
         plant.rotation.y = -angle;
         plant.material = plantMat;
         this.cropMeshes.push(plant);
+
+        this.collisionObstacles.push({ x: px, z: pz, radius: 0.8 });
       }
 
+      this.collisionRings.push({
+        x: cfg.x,
+        z: cfg.z,
+        radius: domeRadius,
+        thickness: 0.3,
+        doorAngle,
+        doorHalf: 0.19
+      });
+
       const glass = BAB.MeshBuilder.CreateSphere(`domeGlass_${cfg.id}`, {
-        diameter: 7.1,
-        segments: 8,
-        slice: 0.5
+        diameter: domeRadius * 2,
+        segments: 16,
+        slice: 0.5,
+        arc: domeArc
       }, this.scene);
-      glass.position = new BAB.Vector3(cfg.x, 0.6, cfg.z);
+      glass.position = new BAB.Vector3(cfg.x, 0.1, cfg.z);
+      glass.rotation.y = domeRotationY;
       const glassMat = new BAB.StandardMaterial(`domeGlassMat_${cfg.id}`, this.scene);
       glassMat.diffuseColor = new BAB.Color3(0.65, 0.85, 0.98);
       glassMat.emissiveColor = new BAB.Color3(0.1, 0.18, 0.25);
@@ -371,11 +403,13 @@ export class BabylonSceneManager {
       glass.material = glassMat;
 
       const ribs = BAB.MeshBuilder.CreateSphere(`domeRibs_${cfg.id}`, {
-        diameter: 7.18,
-        segments: 6,
-        slice: 0.5
+        diameter: domeRadius * 2 + 0.1,
+        segments: 10,
+        slice: 0.5,
+        arc: domeArc
       }, this.scene);
-      ribs.position = new BAB.Vector3(cfg.x, 0.6, cfg.z);
+      ribs.position = new BAB.Vector3(cfg.x, 0.1, cfg.z);
+      ribs.rotation.y = domeRotationY;
       const ribMat = new BAB.StandardMaterial(`domeRibMat_${cfg.id}`, this.scene);
       ribMat.diffuseColor = new BAB.Color3(0.75, 0.8, 0.85);
       ribMat.wireframe = true;
@@ -444,108 +478,191 @@ export class BabylonSceneManager {
     roofMat.diffuseColor = new BAB.Color3(0.68, 0.7, 0.75);
     roofMat.specularColor = new BAB.Color3(0, 0, 0);
 
-    [4.8, 9.8].forEach((hx, i) => {
-      const pod = BAB.MeshBuilder.CreateBox(`habitatPod_${i}`, { width: 4.5, height: 2.5, depth: 3.2 }, this.scene);
-      pod.position = new BAB.Vector3(hx, 1.25, 4.8);
-      pod.material = habMat;
+    habMat.diffuseTexture.uScale = 3;
+    habMat.diffuseTexture.vScale = 1.5;
+    labMat.diffuseTexture.uScale = 3;
+    labMat.diffuseTexture.vScale = 1.5;
 
-      const roof = BAB.MeshBuilder.CreateCylinder(`habitatRoof_${i}`, {
-        diameter: 3.1,
-        height: 4.5,
-        tessellation: 8
-      }, this.scene);
-      roof.rotation.z = Math.PI / 2;
-      roof.scaling.x = 0.45;
-      roof.position = new BAB.Vector3(hx, 2.5, 4.8);
-      roof.material = roofMat;
-
-      const meta = {
+    this.buildRoom({
+      id: 'habitat',
+      x: 20,
+      z: 12,
+      w: 12,
+      d: 9,
+      h: 5,
+      door: 'W',
+      wallMat: habMat,
+      roofMat,
+      floorColor: new BAB.Color3(0.36, 0.38, 0.44),
+      meta: {
         module: 'life_support',
         label: 'Hábitat (Life Support): Reciclador de agua ECLSS y aire.'
-      };
-      pod.metadata = meta;
-      roof.metadata = meta;
+      },
+      props: [{ w: 1.8, h: 2.2, d: 1.4, dx: 3.5, dz: -2.5, color: new BAB.Color3(0.3, 0.55, 0.8) }]
     });
 
-    const tunnel = BAB.MeshBuilder.CreateBox('habTunnel', { width: 1.2, height: 1.8, depth: 2.0 }, this.scene);
-    tunnel.position = new BAB.Vector3(7.3, 0.9, 4.8);
-    tunnel.material = roofMat;
-
-    const lab = BAB.MeshBuilder.CreateBox('scienceLab', { width: 6.4, height: 2.8, depth: 3.8 }, this.scene);
-    lab.position = new BAB.Vector3(8.0, 1.4, -2.5);
-    lab.material = labMat;
-
-    const labRoof = BAB.MeshBuilder.CreateBox('labRoof', { width: 6.0, height: 0.4, depth: 3.4 }, this.scene);
-    labRoof.position = new BAB.Vector3(8.0, 2.95, -2.5);
-    labRoof.material = roofMat;
-
-    const moxieUnit = BAB.MeshBuilder.CreateBox('moxieUnit', { width: 1.6, height: 0.9, depth: 1.4 }, this.scene);
-    moxieUnit.position = new BAB.Vector3(6.5, 3.4, -2.5);
-    const moxieMat = new BAB.StandardMaterial('moxieMat', this.scene);
-    moxieMat.diffuseColor = new BAB.Color3(0.95, 0.65, 0.15);
-    moxieUnit.material = moxieMat;
-
-    const dish = BAB.MeshBuilder.CreateCylinder('commsDish', { diameterTop: 1.4, diameterBottom: 0.2, height: 0.7, tessellation: 8 }, this.scene);
-    dish.position = new BAB.Vector3(9.8, 3.6, -2.5);
-    dish.rotation.x = Math.PI / 5;
-    dish.material = roofMat;
-
+    const labH = 5.5;
+    const labX = 22;
+    const labZ = -6;
     const labMeta = {
       module: 'life_support',
       label: 'Laboratorio MOXIE: Fábrica de oxígeno desde CO2.'
     };
-    lab.metadata = labMeta;
-    labRoof.metadata = labMeta;
+    this.buildRoom({
+      id: 'lab',
+      x: labX,
+      z: labZ,
+      w: 12,
+      d: 9,
+      h: labH,
+      door: 'W',
+      wallMat: labMat,
+      roofMat,
+      floorColor: new BAB.Color3(0.32, 0.4, 0.44),
+      meta: labMeta,
+      props: [{ w: 2.6, h: 1.3, d: 1.2, dx: 3, dz: 2.5, color: new BAB.Color3(0.95, 0.65, 0.15) }]
+    });
+
+    const moxieUnit = BAB.MeshBuilder.CreateBox('moxieUnit', { width: 1.6, height: 0.9, depth: 1.4 }, this.scene);
+    moxieUnit.position = new BAB.Vector3(labX - 3, labH + 0.85, labZ);
+    const moxieMat = new BAB.StandardMaterial('moxieMat', this.scene);
+    moxieMat.diffuseColor = new BAB.Color3(0.95, 0.65, 0.15);
+    moxieUnit.material = moxieMat;
     moxieUnit.metadata = labMeta;
+
+    const dish = BAB.MeshBuilder.CreateCylinder('commsDish', { diameterTop: 1.4, diameterBottom: 0.2, height: 0.7, tessellation: 8 }, this.scene);
+    dish.position = new BAB.Vector3(labX + 3, labH + 0.8, labZ);
+    dish.rotation.x = Math.PI / 5;
+    dish.material = roofMat;
     dish.metadata = {
       module: 'mission_control',
       label: 'Antena DSN: Enlace directo con Control de Misión en Houston.'
     };
   }
 
+  buildRoom({ id, x, z, w, d, h, door, wallMat, roofMat, floorColor, meta, props = [] }) {
+    const BAB = this.BAB;
+    const t = 0.5;
+    const doorW = 3.6;
+    const doorH = 3.4;
+    const walls = [];
+
+    const addBox = (name, cx, cy, cz, sx, sy, sz, mat) => {
+      const mesh = BAB.MeshBuilder.CreateBox(`${id}_${name}`, { width: sx, height: sy, depth: sz }, this.scene);
+      mesh.position = new BAB.Vector3(cx, cy, cz);
+      mesh.material = mat;
+      mesh.metadata = meta;
+      return mesh;
+    };
+    const addSolid = (name, cx, cz, sx, sz) => {
+      walls.push(addBox(name, cx, h / 2, cz, sx, h, sz, wallMat));
+      this.collisionRects.push({ minX: cx - sx / 2, maxX: cx + sx / 2, minZ: cz - sz / 2, maxZ: cz + sz / 2 });
+    };
+
+    const sides = [
+      { key: 'N', alongX: true, cx: x, cz: z + d / 2 - t / 2, len: w },
+      { key: 'S', alongX: true, cx: x, cz: z - d / 2 + t / 2, len: w },
+      { key: 'E', alongX: false, cx: x + w / 2 - t / 2, cz: z, len: d - 2 * t },
+      { key: 'W', alongX: false, cx: x - w / 2 + t / 2, cz: z, len: d - 2 * t }
+    ];
+    sides.forEach((s) => {
+      const sizeX = (len) => (s.alongX ? len : t);
+      const sizeZ = (len) => (s.alongX ? t : len);
+      if (s.key !== door) {
+        addSolid(s.key, s.cx, s.cz, sizeX(s.len), sizeZ(s.len));
+        return;
+      }
+      const seg = (s.len - doorW) / 2;
+      const off = doorW / 2 + seg / 2;
+      [-1, 1].forEach((dir, i) => {
+        const cx = s.alongX ? s.cx + dir * off : s.cx;
+        const cz = s.alongX ? s.cz : s.cz + dir * off;
+        addSolid(`${s.key}${i}`, cx, cz, sizeX(seg), sizeZ(seg));
+      });
+      walls.push(addBox(
+        `${s.key}_lintel`, s.cx, doorH + (h - doorH) / 2, s.cz,
+        sizeX(doorW), h - doorH, sizeZ(doorW), wallMat
+      ));
+    });
+
+    const floorMat = new BAB.StandardMaterial(`${id}_floorMat`, this.scene);
+    floorMat.diffuseColor = floorColor;
+    floorMat.specularColor = new BAB.Color3(0, 0, 0);
+    addBox('floor', x, 0.05, z, w, 0.1, d, floorMat);
+
+    const roof = addBox('roof', x, h + 0.2, z, w + 0.6, 0.4, d + 0.6, roofMat);
+
+    const light = new BAB.PointLight(`${id}_light`, new BAB.Vector3(x, h - 1, z), this.scene);
+    light.diffuse = new BAB.Color3(1.0, 0.92, 0.8);
+    light.intensity = 1.2;
+    light.range = Math.max(w, d) * 1.3;
+    this.domeLights.push(light);
+
+    props.forEach((p, i) => {
+      const propMat = new BAB.StandardMaterial(`${id}_propMat_${i}`, this.scene);
+      propMat.diffuseColor = p.color;
+      const prop = BAB.MeshBuilder.CreateBox(`${id}_prop_${i}`, { width: p.w, height: p.h, depth: p.d }, this.scene);
+      prop.position = new BAB.Vector3(x + p.dx, p.h / 2 + 0.1, z + p.dz);
+      prop.material = propMat;
+      prop.metadata = meta;
+      this.collisionRects.push({
+        minX: x + p.dx - p.w / 2,
+        maxX: x + p.dx + p.w / 2,
+        minZ: z + p.dz - p.d / 2,
+        maxZ: z + p.dz + p.d / 2
+      });
+    });
+
+    this.rooms.push({
+      minX: x - w / 2,
+      maxX: x + w / 2,
+      minZ: z - d / 2,
+      maxZ: z + d / 2,
+      walls,
+      roof
+    });
+  }
+
   initBunker() {
     const BAB = this.BAB;
-    // Rounded regolith-shielded Mars habitat dome (igloo shelter)
-    const bunker = BAB.MeshBuilder.CreateSphere('regolithBunker', {
-      diameter: 4.4,
-      segments: 8,
-      slice: 0.5
-    }, this.scene);
-    bunker.position = new BAB.Vector3(6.5, 0, -10.5);
-    bunker.scaling.y = 0.72;
-
     const bunkerMat = new BAB.StandardMaterial('bunkerMat', this.scene);
     bunkerMat.diffuseTexture = createRockTexture(BAB, this.scene);
+    bunkerMat.diffuseTexture.uScale = 3;
+    bunkerMat.diffuseTexture.vScale = 1.5;
     bunkerMat.specularColor = new BAB.Color3(0, 0, 0);
-    bunker.material = bunkerMat;
 
-    // Metal airlock entrance on bunker
-    const hatch = BAB.MeshBuilder.CreateBox('bunkerHatch', { width: 1.2, height: 1.1, depth: 0.9 }, this.scene);
-    hatch.position = new BAB.Vector3(4.9, 0.55, -9.2);
-    hatch.rotation.y = Math.PI / 4;
-    const hatchMat = new BAB.StandardMaterial('hatchMat', this.scene);
-    hatchMat.diffuseColor = new BAB.Color3(0.45, 0.48, 0.54);
-    hatch.material = hatchMat;
+    const meta = {
+      module: 'shield_system',
+      label: 'Búnker de Regolito (Shield): Refugio antirradiación.'
+    };
+    this.buildRoom({
+      id: 'bunker',
+      x: 6,
+      z: -22,
+      w: 11,
+      d: 8,
+      h: 4.5,
+      door: 'N',
+      wallMat: bunkerMat,
+      roofMat: bunkerMat,
+      floorColor: new BAB.Color3(0.3, 0.2, 0.17),
+      meta,
+      props: [{ w: 4, h: 0.6, d: 1, dx: 0, dz: -2.6, color: new BAB.Color3(0.45, 0.48, 0.54) }]
+    });
 
     this.bunkerShieldMesh = BAB.MeshBuilder.CreateSphere('bunkerShield', {
-      diameter: 5.2,
+      diameter: 18,
       segments: 8,
       slice: 0.5
     }, this.scene);
-    this.bunkerShieldMesh.position = new BAB.Vector3(6.5, 0, -10.5);
+    this.bunkerShieldMesh.position = new BAB.Vector3(6, 0, -22);
     const shieldMat = new BAB.StandardMaterial('shieldMat', this.scene);
     shieldMat.diffuseColor = new BAB.Color3(0.2, 0.8, 1.0);
     shieldMat.emissiveColor = new BAB.Color3(0.1, 0.5, 0.9);
     shieldMat.alpha = 0.0;
     this.bunkerShieldMesh.material = shieldMat;
 
-    const meta = {
-      module: 'shield_system',
-      label: 'Búnker de Regolito (Shield): Refugio antirradiación.'
-    };
-    bunker.metadata = meta;
-    hatch.metadata = meta;
-    this.bunkerShieldMesh.metadata = meta;
+    this.bunkerShieldMesh.isPickable = false;
   }
 
   initStatusBeacons() {
@@ -557,17 +674,17 @@ export class BabylonSceneManager {
         label: 'Energía: Estado de los paneles solares y las baterías.'
       },
       agrodome: {
-        position: new BAB.Vector3(-7.5, 4.5, 6.5),
+        position: new BAB.Vector3(-22, 8.5, 13),
         module: 'agrodome',
         label: 'Invernadero: Estado de los cultivos y las reservas de comida.'
       },
       life_support: {
-        position: new BAB.Vector3(7.3, 4.8, 4.8),
+        position: new BAB.Vector3(20, 6.8, 12),
         module: 'life_support',
         label: 'Soporte vital: Estado del agua, el oxígeno y el aire.'
       },
       shield: {
-        position: new BAB.Vector3(6.5, 3.0, -10.5),
+        position: new BAB.Vector3(6, 6.3, -22),
         module: 'shield_system',
         label: 'Refugio: Estado de la protección ante la radiación.'
       }
@@ -689,6 +806,10 @@ export class BabylonSceneManager {
     visorMat.diffuseColor = new BAB.Color3(0.85, 0.45, 0.12);
     visorMat.emissiveColor = new BAB.Color3(0.35, 0.15, 0.05);
 
+    const glovesMat = new BAB.StandardMaterial('glovesMat', this.scene);
+    glovesMat.diffuseColor = new BAB.Color3(0.15, 0.15, 0.18);
+    glovesMat.specularColor = new BAB.Color3(0, 0, 0);
+
     const torso = BAB.MeshBuilder.CreateBox('astroTorso', { width: 0.75, height: 0.95, depth: 0.5 }, this.scene);
     torso.position.y = 1.05;
     torso.material = accentMat;
@@ -709,6 +830,30 @@ export class BabylonSceneManager {
     visor.material = visorMat;
     visor.parent = this.astronautGroup;
 
+    // Left arm
+    const armL = BAB.MeshBuilder.CreateBox('armL', { width: 0.22, height: 0.75, depth: 0.22 }, this.scene);
+    armL.position = new BAB.Vector3(-0.5, 1.15, 0);
+    armL.material = suitMat;
+    armL.parent = this.astronautGroup;
+
+    // Left glove
+    const gloveL = BAB.MeshBuilder.CreateSphere('gloveL', { diameter: 0.28 }, this.scene);
+    gloveL.position = new BAB.Vector3(-0.5, 0.68, 0);
+    gloveL.material = glovesMat;
+    gloveL.parent = this.astronautGroup;
+
+    // Right arm
+    const armR = BAB.MeshBuilder.CreateBox('armR', { width: 0.22, height: 0.75, depth: 0.22 }, this.scene);
+    armR.position = new BAB.Vector3(0.5, 1.15, 0);
+    armR.material = suitMat;
+    armR.parent = this.astronautGroup;
+
+    // Right glove
+    const gloveR = BAB.MeshBuilder.CreateSphere('gloveR', { diameter: 0.28 }, this.scene);
+    gloveR.position = new BAB.Vector3(0.5, 0.68, 0);
+    gloveR.material = glovesMat;
+    gloveR.parent = this.astronautGroup;
+
     const legL = BAB.MeshBuilder.CreateBox('legL', { width: 0.28, height: 0.6, depth: 0.3 }, this.scene);
     legL.position = new BAB.Vector3(-0.2, 0.3, 0);
     legL.material = suitMat;
@@ -720,6 +865,7 @@ export class BabylonSceneManager {
     legR.parent = this.astronautGroup;
 
     this.astroLegs = { left: legL, right: legR };
+    this.astroArms = { left: armL, right: armR, gloveL, gloveR };
 
     const botCoords = [
       { x: -3.4, z: 2.2, color: new BAB.Color3(0.3, 0.78, 0.45) },
@@ -762,6 +908,15 @@ export class BabylonSceneManager {
     this.dustSystem.minEmitPower = 1.5;
     this.dustSystem.maxEmitPower = 3.5;
     this.dustSystem.start();
+  }
+
+  initCollisionObstacles() {
+    this.collisionRects.push({ minX: -14.8, maxX: -8.0, minZ: -2.2, maxZ: 3.2 });
+    this.collisionObstacles.push(
+      { x: -1.8, z: 9.2, radius: 1.2 },
+      { x: 0.6, z: 8.2, radius: 1.2 },
+      { x: 0.0, z: 3.5, radius: 0.9 }
+    );
   }
 
   initPicking() {
@@ -823,6 +978,12 @@ export class BabylonSceneManager {
           this.onModuleClick(this.currentNearby.module, `Entrando a ${this.currentNearby.title}...`);
         }
       }
+
+      // Press P to toggle perspective
+      if (code === 'KeyP' && this.controlsEnabled) {
+        e.preventDefault();
+        this.togglePerspective();
+      }
     };
 
     this.keyUpHandler = (e) => {
@@ -840,6 +1001,127 @@ export class BabylonSceneManager {
   setControlsEnabled(enabled) {
     this.controlsEnabled = enabled;
     if (!enabled) this.keys = {};
+  }
+
+  checkCollisionWithObstacles(x, z) {
+    const astronautRadius = 0.45;
+    for (const obstacle of this.collisionObstacles) {
+      if (Math.hypot(x - obstacle.x, z - obstacle.z) < obstacle.radius + astronautRadius) return true;
+    }
+    for (const rect of this.collisionRects) {
+      const nearestX = Math.max(rect.minX, Math.min(x, rect.maxX));
+      const nearestZ = Math.max(rect.minZ, Math.min(z, rect.maxZ));
+      if (Math.hypot(x - nearestX, z - nearestZ) < astronautRadius) return true;
+    }
+    for (const ring of this.collisionRings) {
+      const dx = x - ring.x;
+      const dz = z - ring.z;
+      if (Math.abs(Math.hypot(dx, dz) - ring.radius) < ring.thickness + astronautRadius) {
+        let diff = Math.atan2(dz, dx) - ring.doorAngle;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        if (Math.abs(diff) > ring.doorHalf) return true;
+      }
+    }
+    return false;
+  }
+
+  setPerspective(mode) {
+    this.perspective = mode;
+    const first = mode === 'first';
+    if (first) {
+      this.camera.detachControl();
+      this.fpCamera.rotation.y = Math.atan2(
+        -Math.sin(this.astronautGroup.rotation.y),
+        -Math.cos(this.astronautGroup.rotation.y)
+      );
+      this.fpCamera.rotation.x = 0.1;
+      this.fpCamera.attachControl(this.canvas, true);
+      this.scene.activeCamera = this.fpCamera;
+    } else {
+      this.fpCamera.detachControl();
+      this.camera.attachControl(this.canvas, true);
+      this.scene.activeCamera = this.camera;
+    }
+    ['astroHelmet', 'astroVisor', 'astroPack'].forEach((name) => {
+      const mesh = this.scene.getMeshByName(name);
+      if (mesh) mesh.isVisible = !first;
+    });
+    this.onPerspectiveChange?.(mode);
+  }
+
+  async enableGyroscope() {
+    if (this.gyroActive) return 'on';
+    if (typeof window.DeviceOrientationEvent === 'undefined') return 'unsupported';
+
+    const requestPermission = window.DeviceOrientationEvent.requestPermission;
+    if (typeof requestPermission === 'function') {
+      try {
+        if ((await requestPermission.call(window.DeviceOrientationEvent)) !== 'granted') return 'denied';
+      } catch {
+        return 'denied';
+      }
+    }
+
+    this.gyroLast = null;
+    this.gyroGotData = false;
+    this.gyroHandler = (e) => this.handleGyroscope(e);
+    window.addEventListener('deviceorientation', this.gyroHandler);
+    this.gyroActive = true;
+
+    setTimeout(() => {
+      if (this.gyroActive && !this.gyroGotData) {
+        this.disableGyroscope();
+        this.onGyroChange?.('unsupported');
+      }
+    }, 2000);
+    return 'on';
+  }
+
+  disableGyroscope() {
+    if (this.gyroHandler) window.removeEventListener('deviceorientation', this.gyroHandler);
+    this.gyroHandler = null;
+    this.gyroActive = false;
+    this.gyroLast = null;
+  }
+
+  handleGyroscope(e) {
+    if (e.alpha === null || e.beta === null || e.gamma === null) return;
+    this.gyroGotData = true;
+
+    const rad = Math.PI / 180;
+    const a = e.alpha * rad;
+    const b = e.beta * rad;
+    const g = e.gamma * rad;
+    // Direction the back of the device points to, in the east-north-up frame
+    const dx = -(Math.cos(a) * Math.sin(g) + Math.sin(a) * Math.sin(b) * Math.cos(g));
+    const dy = -(Math.sin(a) * Math.sin(g) - Math.cos(a) * Math.sin(b) * Math.cos(g));
+    const dz = -(Math.cos(b) * Math.cos(g));
+    const heading = Math.atan2(dx, dy);
+    const pitch = Math.asin(Math.max(-1, Math.min(1, dz)));
+
+    const last = this.gyroLast;
+    this.gyroLast = { heading, pitch };
+    if (!last || !this.controlsEnabled) return;
+
+    let dYaw = heading - last.heading;
+    dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
+    const dPitch = pitch - last.pitch;
+    if (Math.abs(dYaw) < 0.002 && Math.abs(dPitch) < 0.002) return;
+
+    if (this.perspective === 'first') {
+      this.fpCamera.rotation.y += dYaw;
+      this.fpCamera.rotation.x -= dPitch;
+    } else {
+      this.camera.alpha -= dYaw;
+      this.camera.beta = Math.max(
+        this.camera.lowerBetaLimit,
+        Math.min(this.camera.upperBetaLimit, this.camera.beta + dPitch)
+      );
+    }
+  }
+
+  togglePerspective() {
+    this.setPerspective(this.perspective === 'third' ? 'first' : 'third');
   }
 
   setReducedMotion(enabled) {
@@ -973,7 +1255,9 @@ export class BabylonSceneManager {
     const isMoving = moveX !== 0 || moveZ !== 0;
 
     if (isMoving) {
-      const cameraForward = this.camera.target.subtract(this.camera.position);
+      const cameraForward = this.perspective === 'first'
+        ? new this.BAB.Vector3(Math.sin(this.fpCamera.rotation.y), 0, Math.cos(this.fpCamera.rotation.y))
+        : this.camera.getTarget().subtract(this.camera.position);
       cameraForward.y = 0;
       cameraForward.normalize();
 
@@ -988,14 +1272,24 @@ export class BabylonSceneManager {
       const nx = (movement.x / len) * speed;
       const nz = (movement.z / len) * speed;
 
-      const nextX = Math.max(-19, Math.min(19, this.astronautGroup.position.x + nx));
-      const nextZ = Math.max(-19, Math.min(19, this.astronautGroup.position.z + nz));
-      this.astronautGroup.position.x = nextX;
-      this.astronautGroup.position.z = nextZ;
+      const curX = this.astronautGroup.position.x;
+      const curZ = this.astronautGroup.position.z;
+      const nextX = Math.max(-38, Math.min(38, curX + nx));
+      const nextZ = Math.max(-38, Math.min(38, curZ + nz));
+
+      if (!this.checkCollisionWithObstacles(nextX, nextZ)) {
+        this.astronautGroup.position.x = nextX;
+        this.astronautGroup.position.z = nextZ;
+      } else if (!this.checkCollisionWithObstacles(nextX, curZ)) {
+        this.astronautGroup.position.x = nextX;
+      } else if (!this.checkCollisionWithObstacles(curX, nextZ)) {
+        this.astronautGroup.position.z = nextZ;
+      }
 
       // Face direction of movement (visor faces -Z locally)
-      const targetAngle = Math.atan2(-nx, -nz);
-      this.astronautGroup.rotation.y = targetAngle;
+      if (this.perspective !== 'first') {
+        this.astronautGroup.rotation.y = Math.atan2(-nx, -nz);
+      }
 
       // Walking animation
       if (this.reducedMotion) {
@@ -1011,6 +1305,14 @@ export class BabylonSceneManager {
         this.astroLegs.left.rotation.x = 0;
         this.astroLegs.right.rotation.x = 0;
       }
+      // Arm swing animation
+      if (this.astroArms && !this.reducedMotion) {
+        this.astroArms.left.rotation.x = -Math.sin(this.walkTime) * 0.5;
+        this.astroArms.right.rotation.x = Math.sin(this.walkTime) * 0.5;
+      } else if (this.reducedMotion && this.astroArms) {
+        this.astroArms.left.rotation.x = 0;
+        this.astroArms.right.rotation.x = 0;
+      }
     } else {
       // Idle pose
       this.astronautGroup.position.y = this.reducedMotion
@@ -1022,13 +1324,25 @@ export class BabylonSceneManager {
       }
     }
 
-    // Smooth camera follow
-    const camTarget = new this.BAB.Vector3(
-      this.astronautGroup.position.x * 0.2,
-      0.5,
-      this.astronautGroup.position.z * 0.2
-    );
-    this.camera.target = this.BAB.Vector3.Lerp(this.camera.target, camTarget, 0.08);
+    // The world stays still: the third-person camera only translates with the player
+    // (orbit angles belong to the user); first person rides on the astronaut's head.
+    const playerPos = this.astronautGroup.position;
+    if (this.perspective === 'first') {
+      const yaw = this.fpCamera.rotation.y;
+      this.fpCamera.rotation.x = Math.max(-0.9, Math.min(0.9, this.fpCamera.rotation.x));
+      this.fpCamera.position.set(
+        playerPos.x + Math.sin(yaw) * 0.3,
+        1.75,
+        playerPos.z + Math.cos(yaw) * 0.3
+      );
+      this.astronautGroup.rotation.y = Math.atan2(-Math.sin(yaw), -Math.cos(yaw));
+    } else {
+      const focus = this.cameraFocus.position;
+      focus.x += (playerPos.x - focus.x) * 0.12;
+      focus.z += (playerPos.z - focus.z) * 0.12;
+    }
+
+    this.updateRoomVisibility(playerPos);
 
     // Check proximity to outpost buildings
     let closest = null;
@@ -1049,6 +1363,19 @@ export class BabylonSceneManager {
         this.onProximityChange(closest);
       }
     }
+  }
+
+  updateRoomVisibility(playerPos) {
+    this.rooms.forEach((room) => {
+      const inside = playerPos.x > room.minX && playerPos.x < room.maxX
+        && playerPos.z > room.minZ && playerPos.z < room.maxZ;
+      const wallTarget = inside ? 0.3 : 1;
+      const roofTarget = inside ? 0 : 1;
+      room.roof.visibility += (roofTarget - room.roof.visibility) * 0.2;
+      room.walls.forEach((wall) => {
+        wall.visibility += (wallTarget - wall.visibility) * 0.2;
+      });
+    });
   }
 
   update() {
@@ -1119,6 +1446,7 @@ export class BabylonSceneManager {
   }
 
   dispose() {
+    this.disableGyroscope();
     window.removeEventListener('resize', this.resizeHandler);
     window.removeEventListener('keydown', this.keyDownHandler);
     window.removeEventListener('keyup', this.keyUpHandler);

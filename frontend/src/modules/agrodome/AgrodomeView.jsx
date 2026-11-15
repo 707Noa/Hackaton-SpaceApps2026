@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 export default function AgrodomeView({ state, onExecuteAction, onOpenNasaModal }) {
   const { crops, resources, actionsRemaining } = state;
@@ -80,7 +80,7 @@ export default function AgrodomeView({ state, onExecuteAction, onOpenNasaModal }
             onClick={() => onExecuteAction('agrodome', 'harvest')}
             disabled={actionsRemaining <= 0}
           >
-            🎉 Cosechar Alimentos (+25 🌱 · +6 🫁)
+            🎉 Cosechar Alimentos (+25 🌱 · +6 O₂)
             <span className="action-cost">Beneficio Inmediato</span>
           </button>
         )}
@@ -99,3 +99,4 @@ export default function AgrodomeView({ state, onExecuteAction, onOpenNasaModal }
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-// MARS OUTPOST: Core Simulation, Missions & Trade-off Engine
+﻿// MARS OUTPOST: Core Simulation, Missions & Trade-off Engine
 // Tailored for Junior Astronauts (7-12 years old)
 
 import { SOL_EVENTS, MISSIONS_LIST } from '../data/gameData.js';
@@ -120,7 +120,7 @@ export function executeModuleAction(state, moduleName, actionType, payload = {})
         res.oxygen = clamp(res.oxygen + 18);
         res.co2 = clamp(res.co2 - 4);
         sounds.playPower();
-        bubbleMessage = '🫁 ¡MOXIE funcionó! Fabricaste +18 de Oxígeno puro para la tripulación.';
+        bubbleMessage = 'O₂ ¡MOXIE funcionó! Fabricaste +18 de Oxígeno puro para la tripulación.';
         unlockedMissionId = 'm_moxie';
         actionSuccess = true;
       } else if (actionType === 'recycle_water') {
@@ -534,3 +534,4 @@ export function generateReport(state) {
     crewHealth: state.crew.health
   };
 }
+

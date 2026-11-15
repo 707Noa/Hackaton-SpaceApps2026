@@ -1,4 +1,4 @@
-// MARS OUTPOST: Master Game Data & NASA Scientific Knowledge Base
+﻿// MARS OUTPOST: Master Game Data & NASA Scientific Knowledge Base
 // Conforms to NASA International Space Apps Challenge 2026 specifications
 // Designed intuitively for Junior Astronauts aged 7-12 years old
 
@@ -31,7 +31,7 @@ export const MISSIONS_LIST = [
     goal: 'Enciende el reactor MOXIE para fabricar oxígeno respirable.',
     tip: 'MOXIE convierte el aire irrespirable de Marte (CO2) en oxígeno puro.',
     rewardScience: 15,
-    icon: '🫁'
+    icon: 'moxie'
   },
   {
     id: 'm_recycle',
@@ -75,6 +75,31 @@ export const MISSIONS_LIST = [
   }
 ];
 
+export const GARDEN_SIZE = 10;
+
+export const MISSION_CHALLENGES = {
+  m_plant: { game: 'plant', module: 'agrodome', action: 'plant', payload: { cropType: 'veggie_lettuce' } },
+  m_clean: { game: 'clean', module: 'power_core', action: 'clean_panels' },
+  m_moxie: { game: 'moxie', module: 'life_support', action: 'moxie' },
+  m_recycle: { game: 'water', module: 'life_support', action: 'recycle_water' },
+  m_bunker: { game: 'regolith', module: 'shield_system', action: 'reinforce_regolith' },
+  m_eva: { game: 'eva', module: 'shield_system', action: 'eva_expedition' },
+  m_comms: { game: 'antenna', module: 'mission_control', action: 'ask_earth' }
+};
+
+// Returns the pending mission challenge that guards a module action, if any.
+export function findChallengeForAction(state, moduleName, actionType) {
+  if (state.gameOver || state.victory || state.actionsRemaining <= 0) return null;
+  const done = state.completedMissions || [];
+  const closingBunker = moduleName === 'shield_system' && actionType === 'toggle_bunker' && !state.bunkerActive;
+  const entry = Object.entries(MISSION_CHALLENGES).find(([id, c]) => (
+    (!done.includes(id) || id === 'm_plant')
+    && ((c.module === moduleName && c.action === actionType)
+      || (closingBunker && id === 'm_bunker'))
+  ));
+  return entry ? { missionId: entry[0], game: entry[1].game } : null;
+}
+
 export const INITIAL_GAME_STATE = {
   cadetName: 'Cadete Explorador',
   sol: 1,
@@ -107,6 +132,7 @@ export const INITIAL_GAME_STATE = {
     stage: 0,
     solsToHarvest: 0
   },
+  garden: Array(GARDEN_SIZE).fill(null),
   completedMissions: [],
   scienceProgress: 10,
   earthComms: [
@@ -294,7 +320,7 @@ export const SOL_EVENTS = [
     choices: [
       {
         id: 'c5_a',
-        text: '🫁 Prender la Máquina MOXIE',
+        text: 'O₂ Prender la Máquina MOXIE',
         detail: 'Usa 12 de energía para crear mucho oxígeno puro (+18) desde la atmósfera.',
         effects: { energy: -12, oxygen: 18, co2: -8 }
       },
@@ -352,3 +378,4 @@ export const SOL_EVENTS = [
     ]
   }
 ];
+
